@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '../types';
 import Icon from './Icon';
+import { speakText } from '../services/ttsService';
 
 interface CardListItemProps {
   card: Card;
@@ -18,6 +19,12 @@ const CardListItem: React.FC<CardListItemProps> = ({ card, onEdit, onDelete }) =
   const handleActionClick = (e: React.MouseEvent, action: () => void) => {
     e.stopPropagation();
     action();
+  };
+
+  const handlePlaySound = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Mencegah klik memicu navigasi edit
+    // Ucapkan teks Kanji (sisi depan)
+    speakText(card.front, 'ja-JP');
   };
 
   return (
@@ -45,11 +52,11 @@ const CardListItem: React.FC<CardListItemProps> = ({ card, onEdit, onDelete }) =
       {/* Ikon Aksi */}
       <div className="flex items-center space-x-1 flex-shrink-0 pr-2">
         <button 
-            className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10" 
+            className="p-2 rounded-full text-gray-600 dark:text-[#C8C5CA] hover:bg-black/5 dark:hover:bg-white/10 hover:text-violet-400 dark:hover:text-violet-300 transition-colors" 
             aria-label="Dengarkan pengucapan"
-            onClick={(e) => e.stopPropagation()} // Aksi placeholder untuk TTS
+            onClick={handlePlaySound}
         >
-          <Icon name="volumeUp" className="w-5 h-5 text-gray-600 dark:text-[#C8C5CA]" />
+          <Icon name="volumeUp" className="w-5 h-5" />
         </button>
         <button onClick={(e) => handleActionClick(e, onDelete)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10" aria-label="Hapus kartu">
           <Icon name="trash" className="w-5 h-5 text-red-500/80 dark:text-red-400/80" />

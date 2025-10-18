@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card } from '../types';
 import { useThemeStore } from '../store/themeStore';
+import { speakText } from '../services/ttsService';
+import Icon from './Icon';
 
 interface FlashcardProps {
   card: Card;
@@ -12,6 +14,19 @@ const Flashcard: React.FC<FlashcardProps> = ({ card, isFlipped }) => {
 
   const frontContent = studyDirection === 'kanji' ? card.front : card.back;
   const backContentMain = studyDirection === 'kanji' ? card.back : card.front;
+
+  useEffect(() => {
+    if (isFlipped) {
+      // Secara otomatis mengucapkan konten utama bagian belakang saat kartu dibalik
+      speakText(backContentMain, 'ja-JP');
+    }
+  }, [isFlipped, backContentMain]);
+
+  const handlePlaySound = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Gunakan 'ja-JP' karena kontennya adalah Katakana/Kanji
+    speakText(backContentMain, 'ja-JP');
+  };
 
   return (
     <div className="w-full h-full max-h-80 perspective-1000">
@@ -25,8 +40,17 @@ const Flashcard: React.FC<FlashcardProps> = ({ card, isFlipped }) => {
         {/* Belakang kartu */}
         <div className="absolute w-full h-full bg-gray-100 dark:bg-[#2B2930] rounded-xl flex flex-col justify-center items-center p-6 backface-hidden rotate-y-180 overflow-y-auto">
            <div className="text-center w-full">
-            {/* Jawaban Utama */}
-            <p className="text-3xl font-bold text-gray-900 dark:text-[#E6E1E5]">{backContentMain}</p>
+            {/* Jawaban Utama dengan Ikon TTS */}
+            <div className="flex justify-between items-center w-full max-w-xs mx-auto">
+              <p className="text-3xl font-bold text-gray-900 dark:text-[#E6E1E5]">{backContentMain}</p>
+              <button 
+                  className="p-2 rounded-full text-gray-400 cursor-pointer hover:text-violet-400 dark:hover:text-violet-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  onClick={handlePlaySound}
+                  aria-label="Dengarkan pengucapan"
+              >
+                  <Icon name="volumeUp" className="w-8 h-8" />
+              </button>
+            </div>
 
             {/* Separator - hanya tampil jika ada konten lain */}
             {(card.transcription || card.example) && (
