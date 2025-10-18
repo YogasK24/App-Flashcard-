@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import CardInputField from './CardInputField';
 import Icon from './Icon';
+import AIGenerateButton from './AIGenerateButton';
+import { generateCardFromText } from '../services/aiService';
 
 // Tentukan struktur data untuk setiap kartu dalam state form
 export interface FormCardData {
@@ -37,6 +39,7 @@ interface AddEditCardFormProps {
 
 const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationChange }) => {
   const [cards, setCards] = useState<FormCardData[]>([createNewCard()]);
+  const [aiGeneratedIndex, setAiGeneratedIndex] = useState<number | null>(null);
 
   const isFormValid = !cards.some(card => !card.front.trim() || !card.back.trim());
 
@@ -74,6 +77,29 @@ const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationC
     onSave(cardsToSave);
   };
 
+  const handleAIGenerate = async (index: number) => {
+    const card = cards[index];
+    if (!card.front.trim()) return;
+
+    setAiGeneratedIndex(index);
+    const result = await generateCardFromText(card.front);
+    if (result) {
+        // Gunakan pembaruan fungsional untuk memastikan kita memiliki state terbaru
+        setCards(currentCards => {
+            const newCards = [...currentCards];
+            newCards[index] = {
+                ...newCards[index],
+                front: result.front,
+                back: result.back,
+            };
+            return newCards;
+        });
+    }
+    setTimeout(() => {
+        setAiGeneratedIndex(null);
+    }, 2000); // Sorot selama 2 detik
+  };
+
   return (
     <form onSubmit={handleSubmit} id="add-edit-card-form" className="flex-grow flex flex-col min-h-0">
         <div className="space-y-4 max-h-[60vh] overflow-y-auto p-1 -mr-3 pr-3 flex-grow">
@@ -90,13 +116,31 @@ const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationC
                         value={card.front}
                         onChange={(e) => handleCardChange(index, 'front', e.target.value)}
                         placeholder="e.g., 日本"
+                        iconName="sparkle"
+                        isHighlighted={aiGeneratedIndex === index}
                     />
-                    <CardInputField
-                        label="日本語(片仮名)"
-                        value={card.back}
-                        onChange={(e) => handleCardChange(index, 'back', e.target.value)}
-                        placeholder="e.g., にほん"
-                    />
+
+                    <div className="mb-4">
+                        <div className="flex justify-between items-center mb-2">
+                            <label htmlFor={`card-back-${card.key}`} className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA]">
+                                日本語(片仮名)
+                            </label>
+                            <AIGenerateButton 
+                                onClick={() => handleAIGenerate(index)}
+                                disabled={!card.front.trim()}
+                             />
+                        </div>
+                        <div className="relative flex items-center">
+                            <input
+                                id={`card-back-${card.key}`}
+                                type="text"
+                                value={card.back}
+                                onChange={(e) => handleCardChange(index, 'back', e.target.value)}
+                                placeholder="e.g., にほん"
+                                className="w-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3]"
+                            />
+                        </div>
+                    </div>
                     
                     {card.showTranscription && (
                         <CardInputField

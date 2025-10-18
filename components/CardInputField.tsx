@@ -1,4 +1,5 @@
 import React from 'react';
+import Icon from './Icon';
 
 interface CardInputFieldProps {
   label: string;
@@ -7,6 +8,8 @@ interface CardInputFieldProps {
   placeholder?: string;
   onAddAttribute?: () => void;
   attributeLabel?: string;
+  iconName?: string;
+  isHighlighted?: boolean;
 }
 
 const CardInputField: React.FC<CardInputFieldProps> = ({
@@ -16,15 +19,25 @@ const CardInputField: React.FC<CardInputFieldProps> = ({
   placeholder,
   onAddAttribute,
   attributeLabel,
+  iconName,
+  isHighlighted,
 }) => {
   // Gunakan ID unik untuk input berdasarkan label untuk aksesibilitas
   const inputId = `card-input-${label.replace(/\s+/g, '-').toLowerCase()}`;
 
+  const baseInputClasses = "w-full text-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3] transition-colors duration-300";
+  const defaultBgClasses = "bg-gray-200 dark:bg-gray-700";
+  const highlightedBgClasses = "bg-blue-100 dark:bg-blue-900/60";
+  const inputClasses = `${baseInputClasses} ${isHighlighted ? highlightedBgClasses : defaultBgClasses}`;
+
   return (
     <div className="relative flex flex-col mb-4">
-      <label htmlFor={inputId} className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-2">
-        {label}
-      </label>
+      <div className="flex items-center mb-2">
+        {iconName && <Icon name={iconName} className="w-4 h-4 mr-2 text-violet-400" />}
+        <label htmlFor={inputId} className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA]">
+          {label}
+        </label>
+      </div>
       <div className="relative flex items-center">
         <input
           id={inputId}
@@ -32,7 +45,7 @@ const CardInputField: React.FC<CardInputFieldProps> = ({
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className="w-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3]"
+          className={inputClasses}
         />
         {onAddAttribute && attributeLabel && (
           <div className="absolute right-3">
