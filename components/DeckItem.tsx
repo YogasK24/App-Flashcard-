@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Deck } from '../types';
 import Icon from './Icon';
@@ -9,9 +9,11 @@ interface DeckItemProps {
   onShowContextMenu: (event: React.MouseEvent, deckId: number) => void;
   onPlayClick: (deckId: number) => void;
   openingDeckId: number | null;
+  highlightedItemId: number | null;
 }
 
-const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMenu, onPlayClick, openingDeckId }) => {
+const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMenu, onPlayClick, openingDeckId, highlightedItemId }) => {
+  const [isFlashing, setIsFlashing] = useState(false);
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -20,6 +22,20 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
 
   const isContainer = deck.type === 'folder';
   const isLoading = openingDeckId === deck.id;
+  const isCurrentlyHighlighted = highlightedItemId === deck.id;
+
+  useEffect(() => {
+    // Memicu animasi flash saat item ini disorot
+    if (isCurrentlyHighlighted) {
+      setIsFlashing(true);
+      const timer = setTimeout(() => {
+        setIsFlashing(false);
+      }, 1500); // Durasi flash adalah 1.5 detik
+
+      // Membersihkan timer jika komponen di-unmount atau disorot lagi
+      return () => clearTimeout(timer);
+    }
+  }, [isCurrentlyHighlighted]);
 
   const handleItemClick = () => {
     onItemClick(deck);
@@ -29,16 +45,26 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
     e.stopPropagation();
     onPlayClick(deck.id);
   };
+  
+  const highlightClasses = isCurrentlyHighlighted
+    ? 'ring-2 ring-violet-500 ring-offset-2 ring-offset-gray-50 dark:ring-offset-[#1C1B1F]' 
+    : '';
+
+  // Terapkan kelas flash jika isFlashing true, jika tidak gunakan kelas latar belakang normal
+  const flashClasses = isFlashing
+    ? 'bg-yellow-400/50 dark:bg-yellow-800/50'
+    : 'bg-white dark:bg-[#2B2930]';
 
   return (
     <motion.div 
+      id={`deck-item-${deck.id}`}
       variants={itemVariants}
       onClick={handleItemClick}
       onContextMenu={(e) => {
         e.preventDefault();
         onShowContextMenu(e, deck.id);
       }}
-      className="bg-white dark:bg-[#2B2930] p-4 rounded-lg flex items-center space-x-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-[#3A3841] transition-all duration-200 ease-in-out hover:scale-105 active:scale-95 shadow-sm"
+      className={`${flashClasses} p-4 rounded-lg flex items-center space-x-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-[#3A3841] transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 shadow-sm ${highlightClasses}`}
       role="button"
       tabIndex={0}
       onKeyPress={(e) => (e.key === 'Enter') && handleItemClick()}

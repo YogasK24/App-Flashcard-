@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import Icon from './Icon';
 import ThemeToggle from './ThemeToggle';
+import SearchScopeToggle from './SearchScopeToggle';
 
 interface HeaderProps {
   isSearchVisible: boolean;
@@ -9,6 +10,8 @@ interface HeaderProps {
   onSearchChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onToggleSearch: () => void;
   onOpenSortFilter: () => void;
+  searchScope: 'all' | 'folder' | 'deck' | 'card';
+  onSearchScopeChange: (scope: 'all' | 'folder' | 'deck' | 'card') => void;
 }
 
 const motionVariants: Variants = {
@@ -18,7 +21,15 @@ const motionVariants: Variants = {
 };
 
 
-const Header: React.FC<HeaderProps> = ({ isSearchVisible, searchQuery, onSearchChange, onToggleSearch, onOpenSortFilter }) => {
+const Header: React.FC<HeaderProps> = ({ 
+    isSearchVisible, 
+    searchQuery, 
+    onSearchChange, 
+    onToggleSearch, 
+    onOpenSortFilter, 
+    searchScope, 
+    onSearchScopeChange 
+}) => {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -27,8 +38,19 @@ const Header: React.FC<HeaderProps> = ({ isSearchVisible, searchQuery, onSearchC
     }
   }, [isSearchVisible]);
 
+  const getPlaceholderText = () => {
+    switch (searchScope) {
+      case 'folder': return "Cari folder...";
+      case 'deck': return "Cari dek...";
+      case 'card': return "Cari kartu...";
+      case 'all':
+      default:
+        return "Cari di semua...";
+    }
+  };
+
   return (
-    <header className="bg-transparent dark:bg-[#1C1B1F] text-gray-900 dark:text-[#E6E1E5] px-2 pt-4 mb-1 h-[60px] flex items-center">
+    <header className={`bg-transparent dark:bg-[#1C1B1F] text-gray-900 dark:text-[#E6E1E5] px-2 pt-4 mb-1 flex items-start transition-all duration-300 ${isSearchVisible ? 'h-[110px]' : 'h-[60px]'}`}>
       <AnimatePresence mode="wait">
         {isSearchVisible ? (
           <motion.div
@@ -37,19 +59,28 @@ const Header: React.FC<HeaderProps> = ({ isSearchVisible, searchQuery, onSearchC
             initial="initial"
             animate="animate"
             exit="exit"
-            className="flex justify-between items-center w-full"
+            className="flex flex-col justify-start items-center w-full"
           >
-            <button onClick={onToggleSearch} aria-label="Tutup pencarian" className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10">
-              <Icon name="chevronLeft" className="w-6 h-6" />
-            </button>
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={onSearchChange}
-              placeholder="Cari dek..."
-              className="flex-grow bg-transparent text-lg mx-2 focus:outline-none"
-            />
+            <div className="flex justify-between items-center w-full">
+                <button onClick={onToggleSearch} aria-label="Tutup pencarian" className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10">
+                <Icon name="chevronLeft" className="w-6 h-6" />
+                </button>
+                <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={onSearchChange}
+                placeholder={getPlaceholderText()}
+                className="flex-grow bg-transparent text-lg mx-2 focus:outline-none"
+                />
+            </div>
+
+            <div className="w-full">
+              <SearchScopeToggle
+                currentScope={searchScope}
+                onScopeChange={onSearchScopeChange}
+              />
+            </div>
           </motion.div>
         ) : (
           <motion.div

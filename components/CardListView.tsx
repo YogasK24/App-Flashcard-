@@ -14,9 +14,11 @@ interface CardListViewProps {
   refreshKey: number;
   onEditCard: (card: Card) => void;
   onDeleteCard: (card: Card) => void;
+  cardIdToHighlight: number | null;
+  onHighlightDone: () => void;
 }
 
-const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey, onEditCard, onDeleteCard }) => {
+const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey, onEditCard, onDeleteCard, cardIdToHighlight, onHighlightDone }) => {
   const { getDeckById, getCardsByDeckId, addCardToDeck } = useCardStore(state => ({
     getDeckById: state.getDeckById,
     getCardsByDeckId: state.getCardsByDeckId,
@@ -40,6 +42,28 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
   useEffect(() => {
     fetchData();
   }, [fetchData, refreshKey]);
+
+  useEffect(() => {
+    if (cardIdToHighlight !== null) {
+      // Tunggu hingga DOM diperbarui setelah navigasi folder
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`card-list-item-${cardIdToHighlight}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Hapus sorotan setelah beberapa saat
+          const highlightTimer = setTimeout(() => {
+            onHighlightDone();
+          }, 2500); // Sorot selama 2.5 detik
+          return () => clearTimeout(highlightTimer);
+        } else {
+          // Jika elemen tidak ditemukan, hapus saja sorotan
+          onHighlightDone();
+        }
+      }, 150); // Penundaan singkat untuk rendering
+
+      return () => clearTimeout(timer);
+    }
+  }, [cardIdToHighlight, cards, onHighlightDone]);
 
   const handleAddCard = async (cardsToAdd: Omit<FormCardData, 'key' | 'showTranscription' | 'showExample' | 'showImage'>[]) => {
     for (const card of cardsToAdd) {
@@ -97,6 +121,7 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
                 card={card} 
                 onEdit={() => onEditCard(card)}
                 onDelete={() => onDeleteCard(card)}
+                highlightedCardId={cardIdToHighlight}
               />
             ))}
           </motion.div>

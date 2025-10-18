@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import StudyDirectionToggle from './components/StudyDirectionToggle';
@@ -21,7 +21,13 @@ import QuizModeSelector from './components/QuizModeSelector';
 import EditCardPage from './pages/EditCardPage';
 import { initializeTTS } from './services/ttsService';
 import SortFilterModal from './components/SortFilterModal';
+import { db } from './services/databaseService';
+import CardSearchResultList from './components/CardSearchResultList';
 
+export interface CardSearchResult {
+  card: Card;
+  deck: Deck;
+}
 
 function App() {
   const { 
@@ -55,7 +61,8 @@ function App() {
   }));
   const { theme, sortOption, filterOption } = useThemeStore();
 
-  const [decks, setDecks] = useState<Deck[]>([]);
+  const [decks, setDecks] = useState<Deck[]>([]); // Dek dalam folder saat ini
+  const [decksToDisplay, setDecksToDisplay] = useState<Deck[]>([]); // Dek yang akan ditampilkan, baik hasil penelusuran atau penelusuran
   const [loading, setLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
   const [currentParentId, setCurrentParentId] = useState<number | null>(null);
@@ -83,6 +90,10 @@ function App() {
   // State untuk fungsionalitas pencarian
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [searchScope, setSearchScope] = useState<'all' | 'folder' | 'deck' | 'card'>('all');
+  const [highlightedItemId, setHighlightedItemId] = useState<number | null>(null);
+  const [cardSearchResults, setCardSearchResults] = useState<CardSearchResult[]>([]);
+  const [cardIdToHighlight, setCardIdToHighlight] = useState<number | null>(null);
 
   useEffect(() => {
     initializeTTS(); // Pastikan fungsi inisialisasi ini dipanggil sekali saat komponen dimuat.
@@ -111,6 +122,28 @@ function App() {
     }
   }, [quizDeck, gameType, openingDeckId]);
 
+  useEffect(() => {
+    if (highlightedItemId !== null) {
+      // Tunggu hingga DOM diperbarui setelah navigasi folder
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`deck-item-${highlightedItemId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Hapus sorotan setelah beberapa saat
+          const highlightTimer = setTimeout(() => {
+            setHighlightedItemId(null);
+          }, 2500); // Sorot selama 2.5 detik
+          return () => clearTimeout(highlightTimer);
+        } else {
+          // Jika elemen tidak ditemukan (misalnya, dek yang difilter), hapus saja sorotan
+          setHighlightedItemId(null);
+        }
+      }, 150); // Penundaan singkat untuk rendering
+
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedItemId]);
+
   const fetchAndSetDecks = useCallback(async () => {
     setLoading(true);
     if (currentParentId) {
@@ -131,40 +164,88 @@ function App() {
     }
   }, [fetchAndSetDecks, isInitialized, refreshKey]);
 
-  const decksToDisplay = useMemo(() => {
-    let processedDecks = [...decks];
-
-    // 1. Filter berdasarkan tipe
-    if (filterOption === 'folders') {
-        processedDecks = processedDecks.filter(deck => deck.type === 'folder');
-    } else if (filterOption === 'decks') {
-        processedDecks = processedDecks.filter(deck => deck.type === 'deck');
-    }
-
-    // 2. Sortir
-    processedDecks.sort((a, b) => {
-        switch (sortOption) {
-            case 'title-asc':
-                return a.title.localeCompare(b.title);
-            case 'title-desc':
-                return b.title.localeCompare(a.title);
-            case 'date-asc':
-                return a.id - b.id;
-            case 'date-desc':
-            default:
-                return b.id - a.id;
+  useEffect(() => {
+    const updateDisplay = async () => {
+      if (!isInitialized) return;
+  
+      setLoading(true);
+      const lowerCaseQuery = searchQuery.trim().toLowerCase();
+      let finalDecks: Deck[] = [];
+      let finalCardResults: CardSearchResult[] = [];
+  
+      if (lowerCaseQuery === '') {
+        // --- MODE TELUSUR ---
+        setCardSearchResults([]);
+        let processedDecks = [...decks];
+        // 1. Filter berdasarkan tipe
+        if (filterOption === 'folders') {
+          processedDecks = processedDecks.filter(deck => deck.type === 'folder');
+        } else if (filterOption === 'decks') {
+          processedDecks = processedDecks.filter(deck => deck.type === 'deck');
         }
-    });
-    
-    // 3. Filter berdasarkan kueri pencarian
-    if (searchQuery.trim() !== '') {
-       return processedDecks.filter(deck =>
-         deck.title.toLowerCase().includes(searchQuery.toLowerCase())
-       );
-    }
-    
-    return processedDecks;
-  }, [decks, filterOption, sortOption, searchQuery]);
+        finalDecks = processedDecks;
+      } else {
+        // --- MODE PENCARIAN ---
+        if (searchScope === 'card') {
+          const matchingCards = await db.cards.filter(card =>
+            card.front.toLowerCase().includes(lowerCaseQuery) ||
+            card.back.toLowerCase().includes(lowerCaseQuery)
+          ).toArray();
+          
+          if (matchingCards.length > 0) {
+            const deckIds = [...new Set(matchingCards.map(card => card.deckId))];
+            const parentDecks = await db.decks.where('id').anyOf(deckIds).toArray();
+            const deckMap = new Map(parentDecks.map(deck => [deck.id, deck]));
+
+            finalCardResults = matchingCards.map(card => ({
+                card,
+                deck: deckMap.get(card.deckId)!
+            })).filter(result => result.deck); // Filter kartu yang deknya tidak ditemukan
+          }
+        } else {
+          // Cari dek/folder
+          const allItems = await db.decks.toArray();
+          finalDecks = allItems.filter(item => {
+            const titleMatch = item.title.toLowerCase().includes(lowerCaseQuery);
+            if (!titleMatch) return false;
+  
+            switch (searchScope) {
+              case 'all':
+                return true;
+              case 'folder':
+                return item.type === 'folder';
+              case 'deck':
+                return item.type === 'deck';
+              default:
+                return false;
+            }
+          });
+        }
+      }
+  
+      // --- PENYORTIRAN (diterapkan pada dek) ---
+      finalDecks.sort((a, b) => {
+        switch (sortOption) {
+          case 'title-asc':
+            return a.title.localeCompare(b.title);
+          case 'title-desc':
+            return b.title.localeCompare(a.title);
+          case 'date-asc':
+            return a.id - b.id;
+          case 'date-desc':
+          default:
+            return b.id - a.id;
+        }
+      });
+  
+      setDecksToDisplay(finalDecks);
+      setCardSearchResults(finalCardResults);
+      setLoading(false);
+    };
+  
+    updateDisplay();
+  
+  }, [decks, searchQuery, searchScope, filterOption, sortOption, isInitialized]);
 
   const handleToggleSearch = () => {
     setIsSearchVisible(prev => {
@@ -185,6 +266,21 @@ function App() {
     }
   };
   
+  const handleSearchResultClick = async (deck: Deck) => {
+    // Navigasikan ke folder induk dari hasil pencarian
+    setCurrentParentId(deck.parentId);
+    // Atur item yang akan disorot
+    setHighlightedItemId(deck.id);
+    // Sembunyikan UI pencarian
+    handleToggleSearch(); // Ini juga akan menghapus kueri
+  };
+
+  const handleCardSearchResultClick = (result: CardSearchResult) => {
+    setSelectedDeckId(result.deck.id);
+    setCardIdToHighlight(result.card.id!);
+    handleToggleSearch(); // Sembunyikan pencarian dan hapus kueri
+  };
+
   const handleAddDeck = async (title: string, type: 'deck' | 'folder') => {
     await addDeck(title, type, currentParentId);
     setRefreshKey(k => k + 1); // Gunakan refreshKey untuk memuat ulang
@@ -302,6 +398,10 @@ function App() {
       },
     };
 
+    const isSearching = searchQuery.trim() !== '';
+    const isCardSearch = isSearching && searchScope === 'card';
+    const effectiveOnItemClick = isSearching && !isCardSearch ? handleSearchResultClick : handleDeckItemClick;
+
     return (
       <>
         {selectedDeckId === null ? (
@@ -312,6 +412,8 @@ function App() {
               onSearchChange={(e) => setSearchQuery(e.target.value)}
               onToggleSearch={handleToggleSearch}
               onOpenSortFilter={() => setIsSortFilterModalOpen(true)}
+              searchScope={searchScope}
+              onSearchScopeChange={setSearchScope}
             />
             <main className="px-4 pb-4 space-y-2">
               <Breadcrumbs 
@@ -328,14 +430,23 @@ function App() {
                 initial="hidden"
                 animate="visible"
               >
-                <DeckList 
-                  decks={decksToDisplay} 
-                  loading={loading || !isInitialized} 
-                  onItemClick={handleDeckItemClick} 
-                  onShowContextMenu={handleShowContextMenu} 
-                  onPlayClick={handlePlayClick} 
-                  openingDeckId={openingDeckId}
-                />
+                {isCardSearch ? (
+                  <CardSearchResultList
+                    results={cardSearchResults}
+                    onItemClick={handleCardSearchResultClick}
+                    loading={loading || !isInitialized}
+                  />
+                ) : (
+                  <DeckList 
+                    decks={decksToDisplay} 
+                    loading={loading || !isInitialized} 
+                    onItemClick={effectiveOnItemClick} 
+                    onShowContextMenu={handleShowContextMenu} 
+                    onPlayClick={handlePlayClick} 
+                    openingDeckId={openingDeckId}
+                    highlightedItemId={highlightedItemId}
+                  />
+                )}
               </motion.div>
             </main>
             <FloatingActionButton 
@@ -357,6 +468,8 @@ function App() {
             refreshKey={refreshKey}
             onEditCard={setCardToEdit}
             onDeleteCard={handleDeleteCard}
+            cardIdToHighlight={cardIdToHighlight}
+            onHighlightDone={() => setCardIdToHighlight(null)}
           />
         )}
       </>
