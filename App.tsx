@@ -15,10 +15,10 @@ import ConfirmDeleteModal from './components/ConfirmDeleteModal';
 import MoveDeckModal from './components/MoveDeckModal';
 import EditDeckModal from './components/EditDeckModal';
 import CardListView from './components/CardListView';
-import EditCardModal from './components/EditCardModal';
 import ConfirmDeleteCardModal from './components/ConfirmDeleteCardModal';
 import GamePage from './pages/GamePage';
 import QuizModeSelector from './components/QuizModeSelector';
+import EditCardPage from './pages/EditCardPage';
 
 
 function App() {
@@ -74,7 +74,7 @@ function App() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ deckId: number; title: string } | null>(null);
   const [moveDeckTarget, setMoveDeckTarget] = useState<number | null>(null);
   const [editDeckTarget, setEditDeckTarget] = useState<Deck | null>(null);
-  const [editCardTarget, setEditCardTarget] = useState<Card | null>(null);
+  const [cardToEdit, setCardToEdit] = useState<Card | null>(null);
   const [deleteCardTarget, setDeleteCardTarget] = useState<Card | null>(null);
 
   useEffect(() => {
@@ -210,18 +210,14 @@ function App() {
     setRefreshKey(k => k + 1);
   };
   
-  const handleEditCard = (card: Card) => {
-    setEditCardTarget(card);
-  };
-
   const handleDeleteCard = (card: Card) => {
     setDeleteCardTarget(card);
   };
 
-  const handleConfirmEditCard = async (cardId: number, front: string, back: string) => {
-    await updateCard(cardId, front, back);
-    setEditCardTarget(null);
-    setRefreshKey(k => k + 1);
+  const handleSaveEditedCard = async (cardId: number, data: Partial<Omit<Card, 'id'>>) => {
+    await updateCard(cardId, data);
+    setCardToEdit(null); // Kembali ke daftar kartu
+    setRefreshKey(k => k + 1); // Segarkan daftar kartu
   };
 
   const handleConfirmDeleteCard = async () => {
@@ -297,7 +293,7 @@ function App() {
                 setRefreshKey(k => k + 1); // Segarkan daftar dek saat kembali
             }} 
             refreshKey={refreshKey}
-            onEditCard={handleEditCard}
+            onEditCard={setCardToEdit}
             onDeleteCard={handleDeleteCard}
           />
         )}
@@ -306,6 +302,15 @@ function App() {
   };
   
   const renderPage = () => {
+    if (cardToEdit) {
+      return (
+        <EditCardPage
+          card={cardToEdit}
+          onBack={() => setCardToEdit(null)}
+          onSave={handleSaveEditedCard}
+        />
+      );
+    }
     if (gameType) {
         return <GamePage />;
     }
@@ -397,16 +402,6 @@ function App() {
           deckToEdit={editDeckTarget}
           onClose={() => setEditDeckTarget(null)}
           onSave={handleConfirmRename}
-        />
-      )}
-
-      {editCardTarget && (
-        <EditCardModal
-          isOpen={!!editCardTarget}
-          // Perbaikan: Mengganti variabel `cardToEdit` yang tidak terdefinisi dengan `editCardTarget` dari state.
-          cardToEdit={editCardTarget}
-          onClose={() => setEditCardTarget(null)}
-          onSave={handleConfirmEditCard}
         />
       )}
 

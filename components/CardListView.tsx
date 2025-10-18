@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
 import { Card, Deck } from '../types';
 import Icon from './Icon';
-import CardItem from './CardItem';
+import CardListItem from './CardListItem';
 import FloatingActionButton from './FloatingActionButton';
 import AddCardModal from './AddCardModal';
 import { FormCardData } from './AddEditCardForm';
@@ -76,7 +76,7 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
         </button>
         <h2 className="text-xl font-semibold">{deck?.title || 'Memuat...'}</h2>
       </header>
-      <main className="flex-grow p-4 space-y-4 overflow-y-auto pb-20">
+      <main className="flex-grow px-4 overflow-y-auto pb-20">
         {loading ? (
           <div className="text-center text-gray-500 dark:text-[#C8C5CA]">Memuat kartu...</div>
         ) : cards.length === 0 ? (
@@ -87,13 +87,12 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
           </div>
         ) : (
           <motion.div
-            className="space-y-3"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
           >
             {cards.map(card => (
-              <CardItem 
+              <CardListItem 
                 key={card.id} 
                 card={card} 
                 onEdit={() => onEditCard(card)}

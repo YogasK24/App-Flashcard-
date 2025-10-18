@@ -35,10 +35,12 @@ const createNewCard = (): FormCardData => ({
 interface AddEditCardFormProps {
   onSave: (cards: Omit<FormCardData, 'key' | 'showTranscription' | 'showExample' | 'showImage'>[]) => void;
   onValidationChange: (isValid: boolean) => void;
+  initialData?: FormCardData[];
+  isEditMode?: boolean;
 }
 
-const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationChange }) => {
-  const [cards, setCards] = useState<FormCardData[]>([createNewCard()]);
+const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationChange, initialData, isEditMode = false }) => {
+  const [cards, setCards] = useState<FormCardData[]>(initialData || [createNewCard()]);
   const [aiGeneratedIndex, setAiGeneratedIndex] = useState<number | null>(null);
   const [individualLoading, setIndividualLoading] = useState<{ [key: string]: boolean }>({});
 
@@ -130,7 +132,7 @@ const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationC
         <div className="space-y-4 max-h-[60vh] overflow-y-auto p-1 -mr-3 pr-3 flex-grow">
             {cards.map((card, index) => (
                 <div key={card.key} className="bg-gray-100 dark:bg-[#4A4458]/40 p-4 rounded-lg relative border border-transparent dark:border-gray-700/50">
-                    {cards.length > 1 && (
+                    {!isEditMode && cards.length > 1 && (
                         <button type="button" onClick={() => removeCard(index)} className="absolute top-2 right-2 p-1 rounded-full text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/10" aria-label="Hapus kartu ini">
                             <Icon name="trash" className="w-4 h-4 text-red-500/80"/>
                         </button>
@@ -225,12 +227,14 @@ const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationC
             ))}
         </div>
         
-        <div className="mt-4 flex-shrink-0">
-            <button type="button" onClick={addCard} className="w-full flex items-center justify-center p-3 rounded-lg border-2 border-dashed border-gray-400 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#4A4458]/40 transition-colors">
-                <Icon name="plus" className="w-5 h-5 mr-2" />
-                Tambah Kartu Lain
-            </button>
-        </div>
+        {!isEditMode && (
+            <div className="mt-4 flex-shrink-0">
+                <button type="button" onClick={addCard} className="w-full flex items-center justify-center p-3 rounded-lg border-2 border-dashed border-gray-400 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#4A4458]/40 transition-colors">
+                    <Icon name="plus" className="w-5 h-5 mr-2" />
+                    Tambah Kartu Lain
+                </button>
+            </div>
+        )}
     </form>
   )
 }

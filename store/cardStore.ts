@@ -20,7 +20,7 @@ interface CardStoreState {
   duplicateDeck: (deckId: number) => Promise<void>;
   updateDeckParent: (deckId: number, newParentId: number | null) => Promise<void>;
   addCardToDeck: (deckId: number, front: string, back: string, transcription?: string, example?: string, imageUrl?: string) => Promise<void>;
-  updateCard: (cardId: number, front: string, back: string) => Promise<void>;
+  updateCard: (cardId: number, data: Partial<Omit<Card, 'id'>>) => Promise<void>;
   deleteCard: (cardId: number) => Promise<void>;
   getDecksByParentId: (parentId: number | null) => Promise<Deck[]>;
   getDeckById: (deckId: number) => Promise<Deck | undefined>;
@@ -229,9 +229,9 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
     }
   },
 
-  updateCard: async (cardId: number, front: string, back: string) => {
+  updateCard: async (cardId: number, data: Partial<Omit<Card, 'id'>>) => {
     try {
-        await db.cards.update(cardId, { front, back });
+        await db.cards.update(cardId, data);
     } catch (error) {
         console.error(`Gagal memperbarui kartu ${cardId}:`, error);
     }
