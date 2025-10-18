@@ -5,44 +5,75 @@ import { useCardStore } from '../store/cardStore';
 
 interface DeckItemProps {
   deck: Deck;
+  onNavigate: (deck: Deck) => void;
 }
 
-const DeckItem: React.FC<DeckItemProps> = ({ deck }) => {
-  const startQuiz = useCardStore((state) => state.startQuiz);
+const DeckItem: React.FC<DeckItemProps> = ({ deck, onNavigate }) => {
+  const { startQuiz } = useCardStore(state => ({
+    startQuiz: state.startQuiz,
+  }));
 
+  const isContainer = deck.iconType === 'folder';
+
+  const handleItemClick = () => {
+    if (isContainer) {
+      onNavigate(deck);
+    } else {
+      // Jika ini adalah dek, mulai kuis jika ada kartu yang jatuh tempo.
+      if (deck.dueCount > 0) {
+        startQuiz(deck.id);
+      } else {
+        alert("Tidak ada kartu yang perlu diulang di dek ini.");
+      }
+    }
+  };
+  
   const handlePlay = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Mencegah handleItemClick terpicu juga
     if (deck.dueCount > 0) {
       startQuiz(deck.id);
     } else {
+      // Seharusnya tidak terjadi karena tombol dinonaktifkan, tetapi sebagai pengaman
       alert("Tidak ada kartu yang perlu diulang di dek ini.");
     }
   };
 
   return (
-    <div className="bg-[#2B2930] p-4 rounded-lg flex items-center space-x-4">
+    <div 
+      onClick={handleItemClick}
+      className="bg-[#2B2930] p-4 rounded-lg flex items-center space-x-4 transition-colors cursor-pointer hover:bg-[#3A3841]"
+      role="button"
+      tabIndex={0}
+      onKeyPress={(e) => (e.key === 'Enter') && handleItemClick()}
+    >
       <Icon name={deck.iconType} className="w-6 h-6 text-[#C8B4F3]" />
       <div className="flex-grow">
         <h3 className="text-[#E6E1E5] font-semibold">{deck.title}</h3>
-        <div className="text-xs text-[#948F99] mt-1">
-          <span>{deck.cardCount} kartu</span>
-          {deck.dueCount > 0 && <span className="ml-2 text-yellow-400">{deck.dueCount} perlu diulang</span>}
-        </div>
-        <div className="w-full bg-[#4A4458] rounded-full h-1 mt-2">
-          <div
-            className="bg-[#C8B4F3] h-1 rounded-full"
-            style={{ width: `${deck.progress}%` }}
-          ></div>
-        </div>
+        {!isContainer && (
+          <>
+            <div className="text-xs text-[#948F99] mt-1">
+              <span>{deck.cardCount} kartu</span>
+              {deck.dueCount > 0 && <span className="ml-2 text-yellow-400">{deck.dueCount} perlu diulang</span>}
+            </div>
+            <div className="w-full bg-[#4A4458] rounded-full h-1 mt-2">
+              <div
+                className="bg-[#C8B4F3] h-1 rounded-full"
+                style={{ width: `${deck.progress}%` }}
+              ></div>
+            </div>
+          </>
+        )}
       </div>
-      <button
-        onClick={handlePlay}
-        disabled={deck.dueCount === 0}
-        className="p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10"
-        aria-label={`Mulai kuis untuk ${deck.title}`}
-      >
-        <Icon name="play" className="w-6 h-6 text-[#C8B4F3]" />
-      </button>
+      {!isContainer && (
+        <button
+          onClick={handlePlay}
+          disabled={deck.dueCount === 0}
+          className="p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10"
+          aria-label={`Mulai kuis untuk ${deck.title}`}
+        >
+          <Icon name="play" className="w-6 h-6 text-[#C8B4F3]" />
+        </button>
+      )}
     </div>
   );
 };

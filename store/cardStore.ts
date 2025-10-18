@@ -1,60 +1,35 @@
-import create from 'zustand';
+import { create } from 'zustand';
 import { db } from '../services/databaseService';
 import { Deck, Card } from '../types';
 import { calculateSrsData, getNextDueDate } from '../services/cardService';
 
 interface CardStoreState {
-  decks: Deck[];
-  loading: boolean;
   quizDeck: Deck | null;
   quizCards: Card[];
-  fetchDecks: () => Promise<void>;
-  addDeck: (title: string) => Promise<void>;
   startQuiz: (deckId: number) => Promise<void>;
   endQuiz: () => void;
   updateCardSrs: (card: Card, quality: number) => Promise<void>;
+  addDeck: (title: string, iconType: 'document' | 'folder', parentId: number | null) => Promise<void>;
   addCardToDeck: (deckId: number, front: string, back: string) => Promise<void>;
+  getDecksByParentId: (parentId: number | null) => Promise<Deck[]>;
+  getDeckPath: (deckId: number | null) => Promise<Deck[]>;
 }
 
 export const useCardStore = create<CardStoreState>((set, get) => ({
-  decks: [],
-  loading: true,
   quizDeck: null,
   quizCards: [],
 
-  fetchDecks: async () => {
-    set({ loading: true });
+  addDeck: async (title: string, iconType: 'document' | 'folder', parentId: number | null) => {
     try {
-      const decksFromDb = await db.decks.toArray();
-      const decksWithCounts = await Promise.all(
-        decksFromDb.map(async (deck) => {
-          const cardCount = await db.cards.where('deckId').equals(deck.id!).count();
-          const dueCount = await db.cards
-            .where('deckId')
-            .equals(deck.id!)
-            .and((card) => card.dueDate <= new Date())
-            .count();
-          // Perhitungan progres bisa lebih canggih
-          const studiedCount = await db.cards.where({ deckId: deck.id! }).filter(c => c.interval > 0).count();
-          const progress = cardCount > 0 ? (studiedCount / cardCount) * 100 : 0;
-
-          return { ...deck, cardCount, dueCount, progress, iconType: 'document' as const };
-        })
-      );
-      set({ decks: decksWithCounts, loading: false });
-    } catch (error) {
-      console.error("Gagal mengambil dek:", error);
-      set({ loading: false });
-    }
-  },
-
-  addDeck: async (title: string) => {
-    try {
-      const newDeck: Omit<Deck, 'id' | 'cardCount' | 'progress' | 'dueCount' | 'iconType'> = {
+      const newDeckData: Omit<Deck, 'id'> = {
         title,
+        parentId: parentId,
+        iconType,
+        cardCount: 0,
+        progress: 0,
+        dueCount: 0,
       };
-      await db.decks.add(newDeck as Deck);
-      await get().fetchDecks(); // Muat ulang daftar
+      await db.decks.add(newDeckData as Deck);
     } catch (error) {
       console.error("Gagal menambahkan dek:", error);
     }
@@ -71,7 +46,6 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
           easeFactor: 2.5,
       };
       await db.cards.add(newCard);
-      await get().fetchDecks(); // Muat ulang hitungan
     } catch (error) {
         console.error("Gagal menambahkan kartu:", error);
     }
@@ -88,8 +62,7 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
         .and((card) => card.dueDate <= new Date())
         .toArray();
 
-      // Jika tidak ada kartu yang jatuh tempo, mungkin ambil beberapa yang baru? Untuk saat ini, hanya ulas kartu yang jatuh tempo.
-      set({ quizDeck: { ...deck, cardCount: 0, progress: 0, dueCount: 0, iconType: 'document' }, quizCards: cardsToReview });
+      set({ quizDeck: deck, quizCards: cardsToReview });
     } catch (error) {
       console.error("Gagal memulai kuis:", error);
     }
@@ -97,7 +70,6 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
 
   endQuiz: () => {
     set({ quizDeck: null, quizCards: [] });
-    get().fetchDecks(); // Muat ulang statistik dek setelah kuis
   },
 
   updateCardSrs: async (card: Card, quality: number) => {
@@ -110,10 +82,65 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
       dueDate,
     });
 
-    // Hapus kartu dari sesi kuis saat ini
     set(state => ({
       quizCards: state.quizCards.filter(c => c.id !== card.id)
     }));
+  },
+
+  getDecksByParentId: async (parentId: number | null): Promise<Deck[]> => {
+    try {
+      const decksFromDb = parentId === null
+        ? await db.decks.filter(deck => deck.parentId === null).toArray()
+        : await db.decks.where({ parentId: parentId }).toArray();
+      
+      const decksWithCounts = await Promise.all(
+        decksFromDb.map(async (deck) => {
+          if (deck.iconType === 'folder') {
+            return { ...deck, cardCount: 0, dueCount: 0, progress: 0 };
+          }
+          const cardCount = await db.cards.where('deckId').equals(deck.id!).count();
+          const dueCount = await db.cards
+            .where('deckId')
+            .equals(deck.id!)
+            .and((card) => card.dueDate <= new Date())
+            .count();
+          const studiedCount = await db.cards.where({ deckId: deck.id! }).filter(c => c.interval > 0).count();
+          const progress = cardCount > 0 ? (studiedCount / cardCount) * 100 : 0;
+
+          return { ...deck, cardCount, dueCount, progress };
+        })
+      );
+      return decksWithCounts;
+    } catch (error) {
+      console.error(`Gagal mengambil dek berdasarkan parentId ${parentId}:`, error);
+      return [];
+    }
+  },
+  
+  getDeckPath: async (deckId: number | null): Promise<Deck[]> => {
+    if (deckId === null) {
+      return [];
+    }
+    
+    try {
+      const path: Deck[] = [];
+      let currentId: number | null = deckId;
+
+      while (currentId !== null) {
+        const currentDeck = await db.decks.get(currentId);
+        if (!currentDeck) {
+          console.error(`Deck dengan id ${currentId} tidak ditemukan di dalam path.`);
+          break;
+        }
+        path.push(currentDeck);
+        currentId = currentDeck.parentId;
+      }
+
+      return path.reverse();
+    } catch (error) {
+      console.error(`Gagal mengambil jalur dek untuk id ${deckId}:`, error);
+      return [];
+    }
   },
 
 }));

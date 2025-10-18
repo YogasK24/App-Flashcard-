@@ -6,9 +6,10 @@ import Icon from './Icon';
 interface DeckListProps {
   decks: Deck[];
   loading: boolean;
+  onNavigate: (deck: Deck) => void;
 }
 
-const DeckList: React.FC<DeckListProps> = ({ decks, loading }) => {
+const DeckList: React.FC<DeckListProps> = ({ decks, loading, onNavigate }) => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-48">
@@ -30,7 +31,7 @@ const DeckList: React.FC<DeckListProps> = ({ decks, loading }) => {
   return (
     <div className="space-y-3">
       {decks.map((deck) => (
-        <DeckItem key={deck.id} deck={deck} />
+        <DeckItem key={deck.id} deck={deck} onNavigate={onNavigate} />
       ))}
     </div>
   );

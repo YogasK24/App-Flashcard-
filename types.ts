@@ -6,6 +6,7 @@ export interface Deck {
   progress: number;
   dueCount: number;
   iconType: 'document' | 'folder';
+  parentId: number | null;
 }
 
 export interface Card {
