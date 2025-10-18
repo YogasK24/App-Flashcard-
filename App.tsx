@@ -19,6 +19,7 @@ import ConfirmDeleteCardModal from './components/ConfirmDeleteCardModal';
 import GamePage from './pages/GamePage';
 import QuizModeSelector from './components/QuizModeSelector';
 import EditCardPage from './pages/EditCardPage';
+import { initializeTTS } from './services/ttsService';
 
 
 function App() {
@@ -76,6 +77,10 @@ function App() {
   const [editDeckTarget, setEditDeckTarget] = useState<Deck | null>(null);
   const [cardToEdit, setCardToEdit] = useState<Card | null>(null);
   const [deleteCardTarget, setDeleteCardTarget] = useState<Card | null>(null);
+
+  useEffect(() => {
+    initializeTTS(); // Pastikan fungsi inisialisasi ini dipanggil sekali saat komponen dimuat.
+  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;

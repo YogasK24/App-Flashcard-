@@ -24,6 +24,19 @@ export const speakText = (text: string, lang: string = 'ja-JP') => {
   } else {
     // Beri tahu pengguna jika browser mereka tidak mendukung fitur ini
     console.warn("Text-to-Speech not supported by this browser.");
-    alert("Maaf, browser Anda tidak mendukung fitur Text-to-Speech (TTS).");
+  }
+};
+
+/**
+ * Menginisialisasi engine Text-to-Speech browser untuk mengurangi latensi pada penggunaan pertama.
+ * Ini harus dipanggil sekali saat aplikasi dimuat.
+ */
+export const initializeTTS = () => {
+  // Panggil speakText dengan string kosong untuk "membangunkan" engine.
+  // Ini adalah workaround untuk beberapa browser (terutama di perangkat seluler)
+  // yang memerlukan tindakan pengguna awal untuk mengaktifkan audio.
+  if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance('');
+      window.speechSynthesis.speak(utterance);
   }
 };
