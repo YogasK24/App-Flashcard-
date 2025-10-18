@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+// FIX: Import Variants type from framer-motion to resolve type incompatibility with transition property.
+import { motion, Variants } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
 import ModeItem from './ModeItem';
 import Icon from './Icon';
@@ -11,13 +12,13 @@ interface QuizModeSelectorProps {
 
 type GameType = 'pair-it' | 'guess-it' | 'recall-it' | 'type-it';
 
-const backdropVariants = {
+const backdropVariants: Variants = {
   visible: { opacity: 1 },
   hidden: { opacity: 0 },
   exit: { opacity: 0 },
 };
 
-const modalVariants = {
+const modalVariants: Variants = {
   hidden: { y: "100%", opacity: 0 },
   visible: { 
     y: 0,

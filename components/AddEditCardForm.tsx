@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import CardInputField from './CardInputField';
 import Icon from './Icon';
-import AIGenerateButton from './AIGenerateButton';
-import { generateCardFromText } from '../services/aiService';
+import AISparkleButton from './AISparkleButton';
+import { generateFurigana, generateTranslation, generateExample } from '../services/aiService';
 
 // Tentukan struktur data untuk setiap kartu dalam state form
 export interface FormCardData {
@@ -40,6 +40,7 @@ interface AddEditCardFormProps {
 const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationChange }) => {
   const [cards, setCards] = useState<FormCardData[]>([createNewCard()]);
   const [aiGeneratedIndex, setAiGeneratedIndex] = useState<number | null>(null);
+  const [individualLoading, setIndividualLoading] = useState<{ [key: string]: boolean }>({});
 
   const isFormValid = !cards.some(card => !card.front.trim() || !card.back.trim());
 
@@ -76,29 +77,53 @@ const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationC
     const cardsToSave = cards.map(({ key, showTranscription, showExample, showImage, ...rest }) => rest);
     onSave(cardsToSave);
   };
-
-  const handleAIGenerate = async (index: number) => {
+  
+  const handleGenerateField = async (
+    index: number,
+    cardKey: number,
+    action: 'furigana' | 'translation' | 'example'
+  ) => {
     const card = cards[index];
-    if (!card.front.trim()) return;
+    const kanjiText = card.front.trim();
+    if (!kanjiText) return;
 
-    setAiGeneratedIndex(index);
-    const result = await generateCardFromText(card.front);
-    if (result) {
-        // Gunakan pembaruan fungsional untuk memastikan kita memiliki state terbaru
-        setCards(currentCards => {
-            const newCards = [...currentCards];
-            newCards[index] = {
-                ...newCards[index],
-                front: result.front,
-                back: result.back,
-            };
-            return newCards;
-        });
+    const loadingKey = `${cardKey}-${action}`;
+    setIndividualLoading(prev => ({ ...prev, [loadingKey]: true }));
+
+    try {
+        let result: any;
+        if (action === 'furigana') {
+            result = await generateFurigana(kanjiText);
+        } else if (action === 'translation') {
+            result = await generateTranslation(kanjiText, 'Indonesian');
+        } else if (action === 'example') {
+            result = await generateExample(kanjiText);
+        }
+
+        if (result) {
+            setCards(currentCards => {
+                const newCards = [...currentCards];
+                const targetCard = { ...newCards[index] };
+
+                if (action === 'furigana') {
+                    targetCard.back = result;
+                } else if (action === 'translation') {
+                    targetCard.transcription = result;
+                } else if (action === 'example') {
+                    targetCard.example = result;
+                }
+                
+                newCards[index] = targetCard;
+                return newCards;
+            });
+        }
+    } catch (error) {
+        console.error(`Error generating ${action}:`, error);
+    } finally {
+        setIndividualLoading(prev => ({ ...prev, [loadingKey]: false }));
     }
-    setTimeout(() => {
-        setAiGeneratedIndex(null);
-    }, 2000); // Sorot selama 2 detik
   };
+
 
   return (
     <form onSubmit={handleSubmit} id="add-edit-card-form" className="flex-grow flex flex-col min-h-0">
@@ -121,15 +146,9 @@ const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationC
                     />
 
                     <div className="mb-4">
-                        <div className="flex justify-between items-center mb-2">
-                            <label htmlFor={`card-back-${card.key}`} className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA]">
-                                日本語(片仮名)
-                            </label>
-                            <AIGenerateButton 
-                                onClick={() => handleAIGenerate(index)}
-                                disabled={!card.front.trim()}
-                             />
-                        </div>
+                        <label htmlFor={`card-back-${card.key}`} className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-2">
+                            日本語(片仮名)
+                        </label>
                         <div className="relative flex items-center">
                             <input
                                 id={`card-back-${card.key}`}
@@ -137,8 +156,16 @@ const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationC
                                 value={card.back}
                                 onChange={(e) => handleCardChange(index, 'back', e.target.value)}
                                 placeholder="e.g., にほん"
-                                className="w-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3]"
+                                className="w-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3] pr-10"
                             />
+                            <div className="absolute right-3">
+                                <AISparkleButton
+                                    isLoading={!!individualLoading[`${card.key}-furigana`]}
+                                    onClick={() => handleGenerateField(index, card.key, 'furigana')}
+                                    disabled={!card.front.trim()}
+                                    title="Hasilkan Furigana"
+                                />
+                            </div>
                         </div>
                     </div>
                     
@@ -148,19 +175,37 @@ const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationC
                             value={card.transcription}
                             onChange={(e) => handleCardChange(index, 'transcription', e.target.value)}
                             placeholder="e.g., Nihon"
+                            endAdornment={
+                                <AISparkleButton
+                                    isLoading={!!individualLoading[`${card.key}-translation`]}
+                                    onClick={() => handleGenerateField(index, card.key, 'translation')}
+                                    disabled={!card.front.trim()}
+                                    title="Hasilkan Terjemahan"
+                                />
+                            }
                         />
                     )}
                     
                     {card.showExample && (
-                        <div className="relative flex flex-col mb-4">
+                         <div className="relative flex flex-col mb-4">
                             <label htmlFor={`card-example-${card.key}`} className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-2">Contoh</label>
-                            <textarea
-                                id={`card-example-${card.key}`}
-                                value={card.example}
-                                onChange={(e) => handleCardChange(index, 'example', e.target.value)}
-                                placeholder="e.g., 日本は美しい国です。"
-                                className="w-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3] h-20 resize-none"
-                            />
+                            <div className="relative">
+                                <textarea
+                                    id={`card-example-${card.key}`}
+                                    value={card.example}
+                                    onChange={(e) => handleCardChange(index, 'example', e.target.value)}
+                                    placeholder="e.g., 日本は美しい国です。"
+                                    className="w-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3] h-20 resize-none"
+                                />
+                                <div className="absolute top-2 right-2 z-10">
+                                    <AISparkleButton
+                                        isLoading={!!individualLoading[`${card.key}-example`]}
+                                        onClick={() => handleGenerateField(index, card.key, 'example')}
+                                        disabled={!card.front.trim()}
+                                        title="Hasilkan Contoh Kalimat"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     )}
                     

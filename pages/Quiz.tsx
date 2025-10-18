@@ -106,11 +106,10 @@ const Quiz: React.FC = () => {
               x: { type: 'spring', stiffness: 300, damping: 30 },
               opacity: { duration: 0.2 },
             }}
-            className="absolute w-full h-64"
+            className="absolute w-full h-80"
           >
             <Flashcard
-              front={currentCard.front}
-              back={currentCard.back}
+              card={currentCard}
               isFlipped={isFlipped}
             />
           </motion.div>

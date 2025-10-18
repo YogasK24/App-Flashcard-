@@ -10,6 +10,7 @@ interface CardInputFieldProps {
   attributeLabel?: string;
   iconName?: string;
   isHighlighted?: boolean;
+  endAdornment?: React.ReactNode;
 }
 
 const CardInputField: React.FC<CardInputFieldProps> = ({
@@ -21,6 +22,7 @@ const CardInputField: React.FC<CardInputFieldProps> = ({
   attributeLabel,
   iconName,
   isHighlighted,
+  endAdornment,
 }) => {
   // Gunakan ID unik untuk input berdasarkan label untuk aksesibilitas
   const inputId = `card-input-${label.replace(/\s+/g, '-').toLowerCase()}`;
@@ -28,7 +30,8 @@ const CardInputField: React.FC<CardInputFieldProps> = ({
   const baseInputClasses = "w-full text-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3] transition-colors duration-300";
   const defaultBgClasses = "bg-gray-200 dark:bg-gray-700";
   const highlightedBgClasses = "bg-blue-100 dark:bg-blue-900/60";
-  const inputClasses = `${baseInputClasses} ${isHighlighted ? highlightedBgClasses : defaultBgClasses}`;
+  const paddingClass = endAdornment ? 'pr-10' : '';
+  const inputClasses = `${baseInputClasses} ${isHighlighted ? highlightedBgClasses : defaultBgClasses} ${paddingClass}`;
 
   return (
     <div className="relative flex flex-col mb-4">
@@ -47,17 +50,18 @@ const CardInputField: React.FC<CardInputFieldProps> = ({
           placeholder={placeholder}
           className={inputClasses}
         />
-        {onAddAttribute && attributeLabel && (
-          <div className="absolute right-3">
-             <button
+        <div className="absolute right-3 flex items-center space-x-2">
+            {endAdornment}
+            {onAddAttribute && attributeLabel && (
+            <button
                 type="button"
                 onClick={onAddAttribute}
                 className="bg-gray-600 dark:bg-gray-300 text-gray-300 dark:text-gray-700 px-2 py-1 rounded-full text-xs cursor-pointer hover:opacity-80 transition-opacity"
-              >
+                >
                 + {attributeLabel}
             </button>
-          </div>
-        )}
+            )}
+        </div>
       </div>
     </div>
   );

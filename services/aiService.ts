@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
 // Peringatan: Jangan pernah mengekspos API key di sisi klien dalam aplikasi produksi.
@@ -52,4 +51,111 @@ export const generateCardFromText = async (text: string): Promise<{ front: strin
         return null;
     }
 };
-// Fungsi AI lainnya seperti generateFurigana, generateExampleSentences, dll. akan ditambahkan di sini.
+
+export const generateFurigana = async (kanjiText: string): Promise<string | null> => {
+    if (!ai) return null;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `Berikan Furigana (cara baca Hiragana) untuk teks Kanji ini: "${kanjiText}"`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        furigana: {
+                            type: Type.STRING,
+                            description: "Teks furigana (hiragana) untuk kanji yang diberikan.",
+                        },
+                    },
+                    required: ["furigana"],
+                },
+            },
+        });
+        const generatedText = response.text.trim();
+        const result = JSON.parse(generatedText);
+
+        if (result && typeof result.furigana === 'string') {
+            return result.furigana;
+        } else {
+            console.error("AI response for furigana is not in the expected format:", result);
+            return null;
+        }
+    } catch (error) {
+        console.error("Error generating furigana with AI:", error);
+        return null;
+    }
+};
+
+export const generateTranslation = async (kanjiText: string, nativeLang: string): Promise<string | null> => {
+    if (!ai) return null;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `Terjemahkan kata Kanji ini "${kanjiText}" ke dalam Bahasa ${nativeLang}.`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        translation: {
+                            type: Type.STRING,
+                            description: `Terjemahan dari kata ke dalam Bahasa ${nativeLang}.`,
+                        },
+                    },
+                    required: ["translation"],
+                },
+            },
+        });
+        const generatedText = response.text.trim();
+        const result = JSON.parse(generatedText);
+        
+        if (result && typeof result.translation === 'string') {
+            return result.translation;
+        } else {
+            console.error("AI response for translation is not in the expected format:", result);
+            return null;
+        }
+    } catch (error) {
+        console.error("Error generating translation with AI:", error);
+        return null;
+    }
+};
+
+export const generateExample = async (kanjiText: string): Promise<string | null> => {
+    if (!ai) return null;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `Buat SATU contoh kalimat yang mudah bagi pemula dan beragam pola tata bahasa dalam Bahasa Jepang menggunakan kata Kanji: "${kanjiText}". Jangan sertakan terjemahan. Fokus pada keragaman struktur kalimat.`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        japaneseExample: {
+                            type: Type.STRING,
+                            description: "Contoh kalimat dalam Bahasa Jepang dengan tata bahasa yang beragam.",
+                        },
+                    },
+                    required: ["japaneseExample"],
+                },
+            },
+        });
+        const generatedText = response.text.trim();
+        const result = JSON.parse(generatedText);
+
+        if (result && typeof result.japaneseExample === 'string') {
+            return result.japaneseExample;
+        } else {
+            console.error("AI response for example sentence is not in the expected format:", result);
+            return null;
+        }
+    } catch (error) {
+        console.error("Error generating example sentence with AI:", error);
+        return null;
+    }
+};
