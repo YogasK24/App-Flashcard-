@@ -5,6 +5,7 @@ import FilterBar from './components/FilterBar';
 import DeckList from './components/DeckList';
 import FloatingActionButton from './components/FloatingActionButton';
 import { useCardStore } from './store/cardStore';
+import { useThemeStore } from './store/themeStore';
 import Quiz from './pages/Quiz';
 import Breadcrumbs from './components/Breadcrumbs';
 import { Deck, Card } from './types';
@@ -47,6 +48,7 @@ function App() {
     updateCard: state.updateCard,
     deleteCard: state.deleteCard,
   }));
+  const { theme } = useThemeStore();
 
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +71,11 @@ function App() {
   const [editCardTarget, setEditCardTarget] = useState<Card | null>(null);
   const [deleteCardTarget, setDeleteCardTarget] = useState<Card | null>(null);
 
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+  }, [theme]);
 
   const fetchAndSetDecks = useCallback(async () => {
     setLoading(true);
@@ -278,7 +285,7 @@ function App() {
   };
 
   return (
-    <div className="bg-[#1C1B1F] min-h-screen text-[#E6E1E5] font-sans relative">
+    <div className="bg-gray-50 dark:bg-[#1C1B1F] min-h-screen text-gray-900 dark:text-[#E6E1E5] font-sans relative">
       <style>{`
         .perspective-1000 { perspective: 1000px; }
         .transform-style-3d { transform-style: preserve-3d; }
@@ -357,6 +364,7 @@ function App() {
       {editCardTarget && (
         <EditCardModal
           isOpen={!!editCardTarget}
+          // Perbaikan: Mengganti variabel `cardToEdit` yang tidak terdefinisi dengan `editCardTarget` dari state.
           cardToEdit={editCardTarget}
           onClose={() => setEditCardTarget(null)}
           onSave={handleConfirmEditCard}

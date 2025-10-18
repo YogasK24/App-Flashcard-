@@ -29,9 +29,9 @@ const Quiz: React.FC = () => {
   if (!currentCard && totalCards > 0) {
     // Ini ditampilkan ketika quizCards kosong tetapi kuis telah dimulai
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center text-[#C8C5CA] p-4">
+      <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-[#C8C5CA] p-4">
         <Icon name="folder" className="w-24 h-24 mb-6 opacity-50" />
-        <h2 className="text-2xl font-bold mb-2">Kuis Selesai!</h2>
+        <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Kuis Selesai!</h2>
         <p className="mb-6">Kerja bagus! Semua {totalCards} kartu yang perlu diulang telah diselesaikan.</p>
         <button
           onClick={endQuiz}

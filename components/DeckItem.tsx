@@ -46,21 +46,21 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
         e.preventDefault();
         onShowContextMenu(e, deck.id);
       }}
-      className="bg-[#2B2930] p-4 rounded-lg flex items-center space-x-4 cursor-pointer hover:bg-[#3A3841] transition-all duration-200 ease-in-out hover:scale-105 active:scale-95"
+      className="bg-white dark:bg-[#2B2930] p-4 rounded-lg flex items-center space-x-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-[#3A3841] transition-all duration-200 ease-in-out hover:scale-105 active:scale-95 shadow-sm"
       role="button"
       tabIndex={0}
       onKeyPress={(e) => (e.key === 'Enter') && handleItemClick()}
     >
       <Icon name={isContainer ? 'folder' : 'document'} className="w-6 h-6 text-[#C8B4F3]" />
       <div className="flex-grow">
-        <h3 className="text-[#E6E1E5] font-semibold">{deck.title}</h3>
+        <h3 className="text-gray-900 dark:text-[#E6E1E5] font-semibold">{deck.title}</h3>
         {!isContainer && (
           <>
-            <div className="text-xs text-[#948F99] mt-1">
+            <div className="text-xs text-gray-500 dark:text-[#948F99] mt-1">
               <span>{deck.cardCount} kartu</span>
-              {deck.dueCount > 0 && <span className="ml-2 text-yellow-400">{deck.dueCount} perlu diulang</span>}
+              {deck.dueCount > 0 && <span className="ml-2 text-yellow-500 dark:text-yellow-400">{deck.dueCount} perlu diulang</span>}
             </div>
-            <div className="w-full bg-[#4A4458] rounded-full h-1 mt-2">
+            <div className="w-full bg-gray-200 dark:bg-[#4A4458] rounded-full h-1 mt-2">
               <div
                 className="bg-[#C8B4F3] h-1 rounded-full"
                 style={{ width: `${deck.progress}%` }}
@@ -71,13 +71,13 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
       </div>
       {isContainer ? (
         <div className="p-2" aria-hidden="true">
-          <Icon name="chevronRight" className="w-6 h-6 text-[#948F99]" />
+          <Icon name="chevronRight" className="w-6 h-6 text-gray-400 dark:text-[#948F99]" />
         </div>
       ) : (
         <button
           onClick={handlePlay}
           disabled={deck.dueCount === 0}
-          className="p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10 transition-transform duration-200 ease-in-out hover:scale-105 active:scale-95"
+          className="p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black/5 dark:hover:bg-white/10 transition-transform duration-200 ease-in-out hover:scale-105 active:scale-95"
           aria-label={`Mulai kuis untuk ${deck.title}`}
         >
           <Icon name="play" className="w-6 h-6 text-[#C8B4F3]" />

@@ -26,7 +26,7 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ currentDeckId, onNavigate }) 
 
   // Mencegah pergeseran layout saat memuat dengan menampilkan placeholder.
   if (loading) {
-    return <div className="h-5 pb-2 animate-pulse"><div className="bg-gray-700/50 h-4 w-1/3 rounded"></div></div>;
+    return <div className="h-5 pb-2 animate-pulse"><div className="bg-gray-200 dark:bg-gray-700/50 h-4 w-1/3 rounded"></div></div>;
   }
   
   return (
@@ -38,7 +38,7 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ currentDeckId, onNavigate }) 
       transition={{ duration: 0.2 }}
     >
         {path.length > 0 && (
-            <nav aria-label="breadcrumb" className="text-sm text-[#C8C5CA] flex items-center flex-wrap h-full">
+            <nav aria-label="breadcrumb" className="text-sm text-gray-500 dark:text-[#C8C5CA] flex items-center flex-wrap h-full">
             <button onClick={() => onNavigate(null)} className="hover:underline">
                 Semua Dek
             </button>
@@ -50,7 +50,7 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ currentDeckId, onNavigate }) 
                     {deck.title}
                     </button>
                 ) : (
-                    <span className="font-semibold text-white" aria-current="page">
+                    <span className="font-semibold text-gray-800 dark:text-white" aria-current="page">
                     {deck.title}
                     </span>
                 )}

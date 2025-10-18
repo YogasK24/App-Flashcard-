@@ -35,11 +35,11 @@ const AddDeckModal: React.FC<AddDeckModalProps> = ({ isOpen, onClose, onAdd }) =
         onClick={handleBackdropClick}
         className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fade-in-backdrop"
     >
-      <div className="bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl animate-fade-in-content">
-        <h2 className="text-xl font-bold text-white mb-6">Buat Item Baru</h2>
+      <div className="bg-white dark:bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl animate-fade-in-content">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Buat Item Baru</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="deck-title" className="block text-sm font-medium text-[#C8C5CA] mb-2">
+            <label htmlFor="deck-title" className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-2">
               Judul
             </label>
             <input
@@ -47,7 +47,7 @@ const AddDeckModal: React.FC<AddDeckModalProps> = ({ isOpen, onClose, onAdd }) =
               id="deck-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-[#4A4458] border border-[#645F73] text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3]"
+              className="w-full bg-gray-100 dark:bg-[#4A4458] border border-gray-300 dark:border-[#645F73] text-gray-900 dark:text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3]"
               placeholder="e.g., JLPT N5 Kanji"
               required
               autoFocus
@@ -55,14 +55,14 @@ const AddDeckModal: React.FC<AddDeckModalProps> = ({ isOpen, onClose, onAdd }) =
           </div>
 
           <div className="mb-6">
-            <span className="block text-sm font-medium text-[#C8C5CA] mb-2">Tipe</span>
+            <span className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-2">Tipe</span>
             <div className="grid grid-cols-2 gap-3">
-              <label className={`flex items-center justify-center p-3 rounded-lg cursor-pointer transition-colors ${type === 'deck' ? 'bg-[#C8B4F3] text-black' : 'bg-[#4A4458] text-white'}`}>
+              <label className={`flex items-center justify-center p-3 rounded-lg cursor-pointer transition-colors ${type === 'deck' ? 'bg-[#C8B4F3] text-black' : 'bg-gray-200 text-black dark:bg-[#4A4458] dark:text-white'}`}>
                 <input type="radio" name="type" value="deck" checked={type === 'deck'} onChange={() => setType('deck')} className="sr-only" />
                 <Icon name="document" className="w-5 h-5 mr-2" />
                 <span className="font-semibold">Dek</span>
               </label>
-              <label className={`flex items-center justify-center p-3 rounded-lg cursor-pointer transition-colors ${type === 'folder' ? 'bg-[#C8B4F3] text-black' : 'bg-[#4A4458] text-white'}`}>
+              <label className={`flex items-center justify-center p-3 rounded-lg cursor-pointer transition-colors ${type === 'folder' ? 'bg-[#C8B4F3] text-black' : 'bg-gray-200 text-black dark:bg-[#4A4458] dark:text-white'}`}>
                 <input type="radio" name="type" value="folder" checked={type === 'folder'} onChange={() => setType('folder')} className="sr-only" />
                 <Icon name="folder" className="w-5 h-5 mr-2" />
                 <span className="font-semibold">Folder</span>
@@ -74,7 +74,7 @@ const AddDeckModal: React.FC<AddDeckModalProps> = ({ isOpen, onClose, onAdd }) =
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-full text-[#C8B4F3] font-semibold hover:bg-white/10"
+              className="px-4 py-2 rounded-full text-[#C8B4F3] font-semibold hover:bg-gray-500/10 dark:hover:bg-white/10"
             >
               Batal
             </button>

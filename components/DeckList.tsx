@@ -15,16 +15,16 @@ const DeckList: React.FC<DeckListProps> = ({ decks, loading, onItemClick, onShow
   if (loading) {
     return (
       <div className="flex justify-center items-center h-48">
-        <p className="text-[#C8C5CA]">Memuat dek...</p>
+        <p className="text-gray-500 dark:text-[#C8C5CA]">Memuat dek...</p>
       </div>
     );
   }
 
   if (decks.length === 0) {
     return (
-      <div className="flex flex-col justify-center items-center h-48 text-center text-[#C8C5CA]">
+      <div className="flex flex-col justify-center items-center h-48 text-center text-gray-500 dark:text-[#C8C5CA]">
         <Icon name="folder" className="w-16 h-16 mb-4 opacity-50" />
-        <h3 className="text-lg font-semibold">Belum ada dek</h3>
+        <h3 className="text-lg font-semibold text-gray-700 dark:text-white">Belum ada dek</h3>
         <p className="mt-1">Ayo buat yang pertama menggunakan tombol + di bawah!</p>
       </div>
     );

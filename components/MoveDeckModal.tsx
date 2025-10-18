@@ -45,7 +45,7 @@ const MoveDeckModal: React.FC<MoveDeckModalProps> = ({ isOpen, deckToMoveId, onC
   
   const renderParentList = () => {
     if (loading) {
-      return <div className="text-center text-[#C8C5CA]">Memuat folder...</div>;
+      return <div className="text-center text-gray-500 dark:text-[#C8C5CA]">Memuat folder...</div>;
     }
 
     return (
@@ -53,7 +53,7 @@ const MoveDeckModal: React.FC<MoveDeckModalProps> = ({ isOpen, deckToMoveId, onC
             {/* Opsi untuk pindah ke root */}
             <button
             onClick={() => setSelectedParentId(null)}
-            className={`w-full text-left flex items-center p-3 rounded-lg transition-colors ${selectedParentId === null ? 'bg-[#C8B4F3] text-black' : 'hover:bg-[#4A4458]'}`}
+            className={`w-full text-left flex items-center p-3 rounded-lg transition-colors ${selectedParentId === null ? 'bg-[#C8B4F3] text-black' : 'hover:bg-gray-100 dark:hover:bg-[#4A4458]'}`}
             >
             <Icon name="folder" className="w-5 h-5 mr-3" />
             <span className="font-semibold">Folder Utama</span>
@@ -64,7 +64,7 @@ const MoveDeckModal: React.FC<MoveDeckModalProps> = ({ isOpen, deckToMoveId, onC
             <button
                 key={deck.id}
                 onClick={() => setSelectedParentId(deck.id)}
-                className={`w-full text-left flex items-center p-3 rounded-lg transition-colors ${selectedParentId === deck.id ? 'bg-[#C8B4F3] text-black' : 'hover:bg-[#4A4458]'}`}
+                className={`w-full text-left flex items-center p-3 rounded-lg transition-colors ${selectedParentId === deck.id ? 'bg-[#C8B4F3] text-black' : 'hover:bg-gray-100 dark:hover:bg-[#4A4458]'}`}
             >
                 <Icon name="folder" className="w-5 h-5 mr-3" />
                 <span className="font-semibold">{deck.title}</span>
@@ -79,8 +79,8 @@ const MoveDeckModal: React.FC<MoveDeckModalProps> = ({ isOpen, deckToMoveId, onC
       onClick={handleBackdropClick}
       className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fade-in-backdrop"
     >
-      <div className="bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl animate-fade-in-content">
-        <h2 className="text-xl font-bold text-white mb-4">Pindahkan ke...</h2>
+      <div className="bg-white dark:bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl animate-fade-in-content">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Pindahkan ke...</h2>
         
         <div className="mb-6">
           {renderParentList()}
@@ -90,7 +90,7 @@ const MoveDeckModal: React.FC<MoveDeckModalProps> = ({ isOpen, deckToMoveId, onC
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-full text-[#C8B4F3] font-semibold hover:bg-white/10"
+            className="px-4 py-2 rounded-full text-[#C8B4F3] font-semibold hover:bg-gray-500/10 dark:hover:bg-white/10"
           >
             Batal
           </button>

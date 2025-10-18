@@ -32,7 +32,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, deckId, onClose, onRena
       />
       <div
         style={menuStyle}
-        className="fixed bg-[#2B2930] text-[#E6E1E5] rounded-lg shadow-xl py-2 w-48 z-50 animate-fade-in"
+        className="fixed bg-white dark:bg-[#2B2930] text-gray-900 dark:text-[#E6E1E5] rounded-lg shadow-xl py-2 w-48 z-50 animate-fade-in"
       >
         <style>{`
           @keyframes fade-in {
@@ -47,7 +47,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, deckId, onClose, onRena
           <li>
             <button
               onClick={() => handleAction(onRename)}
-              className="w-full text-left px-4 py-2 hover:bg-[#4A4458] transition-colors"
+              className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-[#4A4458] transition-colors"
             >
               Ubah Nama
             </button>
@@ -55,7 +55,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, deckId, onClose, onRena
           <li>
             <button
               onClick={() => handleAction(onCopy)}
-              className="w-full text-left px-4 py-2 hover:bg-[#4A4458] transition-colors"
+              className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-[#4A4458] transition-colors"
             >
               Salin
             </button>
@@ -63,7 +63,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, deckId, onClose, onRena
           <li>
             <button
               onClick={() => handleAction(onMove)}
-              className="w-full text-left px-4 py-2 hover:bg-[#4A4458] transition-colors"
+              className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-[#4A4458] transition-colors"
             >
               Pindahkan
             </button>
@@ -71,7 +71,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, deckId, onClose, onRena
           <li>
             <button
               onClick={() => handleAction(onDelete)}
-              className="w-full text-left px-4 py-2 text-red-400 hover:bg-[#4A4458] transition-colors"
+              className="w-full text-left px-4 py-2 text-red-500 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-[#4A4458] transition-colors"
             >
               Hapus
             </button>

@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Studi Cerdas dengan Flashcard AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+      }
+    </script>
     <script src="https://unpkg.com/dexie@3/dist/dexie.js"></script>
     <style>
       body {
-        background-color: #141218;
-        color: #E6E1E5;
         font-family: sans-serif;
       }
     </style>
@@ -22,7 +25,9 @@
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0",
     "dexie": "https://aistudiocdn.com/dexie@^4.2.1",
     "zustand": "https://aistudiocdn.com/zustand@^4.5.4",
-    "framer-motion": "https://aistudiocdn.com/framer-motion@^11.3.8"
+    "zustand/middleware": "https://aistudiocdn.com/zustand@^4.5.4/middleware.js",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^11.3.8",
+    "zustand/": "https://aistudiocdn.com/zustand@^5.0.8/"
   }
 }
 </script>
