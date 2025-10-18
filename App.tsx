@@ -12,6 +12,7 @@ import ContextMenu from './components/ContextMenu';
 import ConfirmDeleteModal from './components/ConfirmDeleteModal';
 import MoveDeckModal from './components/MoveDeckModal';
 import EditDeckModal from './components/EditDeckModal';
+import AddCardModal from './components/AddCardModal';
 
 function App() {
   const { 
@@ -23,6 +24,8 @@ function App() {
     getPossibleParentDecks,
     updateDeckTitle,
     duplicateDeck,
+    getDeckById,
+    addCardToDeck,
   } = useCardStore(state => ({
     quizDeck: state.quizDeck,
     getDecksByParentId: state.getDecksByParentId,
@@ -32,12 +35,16 @@ function App() {
     getPossibleParentDecks: state.getPossibleParentDecks,
     updateDeckTitle: state.updateDeckTitle,
     duplicateDeck: state.duplicateDeck,
+    getDeckById: state.getDeckById,
+    addCardToDeck: state.addCardToDeck,
   }));
 
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentParentId, setCurrentParentId] = useState<number | null>(null);
+  const [currentParentDeck, setCurrentParentDeck] = useState<Deck | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
   const [contextMenuState, setContextMenuState] = useState({
     isVisible: false,
     x: 0,
@@ -51,10 +58,16 @@ function App() {
 
   const fetchAndSetDecks = useCallback(async () => {
     setLoading(true);
+    if (currentParentId) {
+        const parentDeck = await getDeckById(currentParentId);
+        setCurrentParentDeck(parentDeck || null);
+    } else {
+        setCurrentParentDeck(null); // Atur ke null untuk root
+    }
     const fetchedDecks = await getDecksByParentId(currentParentId);
     setDecks(fetchedDecks);
     setLoading(false);
-  }, [currentParentId, getDecksByParentId]);
+  }, [currentParentId, getDecksByParentId, getDeckById]);
 
   useEffect(() => {
     fetchAndSetDecks();
@@ -64,10 +77,26 @@ function App() {
     setCurrentParentId(deck.id);
   };
   
-  const handleAddDeck = async (title: string, type: 'document' | 'folder') => {
+  const handleAddDeck = async (title: string, type: 'deck' | 'folder') => {
     await addDeck(title, type, currentParentId);
     await fetchAndSetDecks();
     setIsModalOpen(false);
+  };
+
+  const handleAddCard = async (front: string, back: string) => {
+    if (currentParentId) {
+        await addCardToDeck(currentParentId, front, back);
+        setIsAddCardModalOpen(false);
+        await fetchAndSetDecks(); // Muat ulang untuk memperbarui jumlah kartu
+    }
+  };
+  
+  const handleFabClick = () => {
+    if (currentParentDeck?.type === 'deck') {
+      setIsAddCardModalOpen(true);
+    } else {
+      setIsModalOpen(true); // Untuk folder dan root
+    }
   };
 
   const handleShowContextMenu = (event: React.MouseEvent, deckId: number) => {
@@ -151,12 +180,22 @@ function App() {
             <DeckList decks={decks} loading={loading} onNavigate={handleNavigateTo} onShowContextMenu={handleShowContextMenu} />
         </div>
       </main>
-      <FloatingActionButton onAdd={() => setIsModalOpen(true)} />
+      <FloatingActionButton 
+        onAdd={handleFabClick} 
+        text={currentParentDeck?.type === 'deck' ? 'Tambah Kartu' : undefined}
+      />
       <AddDeckModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAdd={handleAddDeck}
       />
+      {currentParentId && isAddCardModalOpen && (
+        <AddCardModal
+          isOpen={isAddCardModalOpen}
+          onClose={() => setIsAddCardModalOpen(false)}
+          onAddCard={handleAddCard}
+        />
+      )}
     </>
   );
 

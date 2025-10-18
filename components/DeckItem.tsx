@@ -14,7 +14,7 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onNavigate, onShowContextMenu
     startQuiz: state.startQuiz,
   }));
 
-  const isContainer = deck.iconType === 'folder';
+  const isContainer = deck.type === 'folder';
 
   const handleItemClick = () => {
     if (isContainer) {
@@ -51,7 +51,7 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onNavigate, onShowContextMenu
       tabIndex={0}
       onKeyPress={(e) => (e.key === 'Enter') && handleItemClick()}
     >
-      <Icon name={deck.iconType} className="w-6 h-6 text-[#C8B4F3]" />
+      <Icon name={isContainer ? 'folder' : 'document'} className="w-6 h-6 text-[#C8B4F3]" />
       <div className="flex-grow">
         <h3 className="text-[#E6E1E5] font-semibold">{deck.title}</h3>
         {!isContainer && (
@@ -69,7 +69,11 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onNavigate, onShowContextMenu
           </>
         )}
       </div>
-      {!isContainer && (
+      {isContainer ? (
+        <div className="p-2" aria-hidden="true">
+          <Icon name="chevronRight" className="w-6 h-6 text-[#948F99]" />
+        </div>
+      ) : (
         <button
           onClick={handlePlay}
           disabled={deck.dueCount === 0}

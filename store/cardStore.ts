@@ -9,13 +9,14 @@ interface CardStoreState {
   startQuiz: (deckId: number) => Promise<void>;
   endQuiz: () => void;
   updateCardSrs: (card: Card, quality: number) => Promise<void>;
-  addDeck: (title: string, iconType: 'document' | 'folder', parentId: number | null) => Promise<void>;
+  addDeck: (title: string, type: 'deck' | 'folder', parentId: number | null) => Promise<void>;
   deleteDeck: (deckId: number) => Promise<void>;
   updateDeckTitle: (deckId: number, newTitle: string) => Promise<void>;
   duplicateDeck: (deckId: number) => Promise<void>;
   updateDeckParent: (deckId: number, newParentId: number | null) => Promise<void>;
   addCardToDeck: (deckId: number, front: string, back: string) => Promise<void>;
   getDecksByParentId: (parentId: number | null) => Promise<Deck[]>;
+  getDeckById: (deckId: number) => Promise<Deck | undefined>;
   getDeckPath: (deckId: number | null) => Promise<Deck[]>;
   getPossibleParentDecks: (deckId: number) => Promise<Deck[]>;
 }
@@ -24,12 +25,12 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
   quizDeck: null,
   quizCards: [],
 
-  addDeck: async (title: string, iconType: 'document' | 'folder', parentId: number | null) => {
+  addDeck: async (title: string, type: 'deck' | 'folder', parentId: number | null) => {
     try {
       const newDeckData: Omit<Deck, 'id'> = {
         title,
         parentId: parentId,
-        iconType,
+        type,
         cardCount: 0,
         progress: 0,
         dueCount: 0,
@@ -94,7 +95,7 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
 
             const newDeckId = await db.decks.add(newDeckData as Deck);
 
-            if (originalDeck.iconType === 'document') {
+            if (originalDeck.type === 'deck') {
                 const originalCards = await db.cards.where({ deckId }).toArray();
                 
                 if (originalCards.length > 0) {
@@ -184,7 +185,7 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
       
       const decksWithCounts = await Promise.all(
         decksFromDb.map(async (deck) => {
-          if (deck.iconType === 'folder') {
+          if (deck.type === 'folder') {
             return { ...deck, cardCount: 0, dueCount: 0, progress: 0 };
           }
           const cardCount = await db.cards.where('deckId').equals(deck.id!).count();
@@ -206,6 +207,15 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
     }
   },
   
+  getDeckById: async (deckId: number): Promise<Deck | undefined> => {
+    try {
+        return await db.decks.get(deckId);
+    } catch (error) {
+        console.error(`Gagal mengambil dek dengan ID ${deckId}:`, error);
+        return undefined;
+    }
+  },
+
   getDeckPath: async (deckId: number | null): Promise<Deck[]> => {
     if (deckId === null) {
       return [];
@@ -251,7 +261,7 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
       // Ambil semua dek dan filter
       const allDecks = await db.decks.toArray();
       return allDecks.filter(deck => 
-        !descendantIds.has(deck.id) && deck.iconType === 'folder'
+        !descendantIds.has(deck.id) && deck.type === 'folder'
       );
     } catch (error) {
       console.error(`Gagal mengambil dek tujuan yang memungkinkan untuk dek ${deckId}:`, error);

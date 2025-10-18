@@ -4,12 +4,12 @@ import Icon from './Icon';
 interface AddDeckModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (title: string, type: 'document' | 'folder') => void;
+  onAdd: (title: string, type: 'deck' | 'folder') => void;
 }
 
 const AddDeckModal: React.FC<AddDeckModalProps> = ({ isOpen, onClose, onAdd }) => {
   const [title, setTitle] = useState('');
-  const [type, setType] = useState<'document' | 'folder'>('document');
+  const [type, setType] = useState<'deck' | 'folder'>('deck');
 
   if (!isOpen) {
     return null;
@@ -20,7 +20,7 @@ const AddDeckModal: React.FC<AddDeckModalProps> = ({ isOpen, onClose, onAdd }) =
     if (title.trim()) {
       onAdd(title.trim(), type);
       setTitle(''); // Reset form
-      setType('document');
+      setType('deck');
     }
   };
   
@@ -57,8 +57,8 @@ const AddDeckModal: React.FC<AddDeckModalProps> = ({ isOpen, onClose, onAdd }) =
           <div className="mb-6">
             <span className="block text-sm font-medium text-[#C8C5CA] mb-2">Tipe</span>
             <div className="grid grid-cols-2 gap-3">
-              <label className={`flex items-center justify-center p-3 rounded-lg cursor-pointer transition-colors ${type === 'document' ? 'bg-[#C8B4F3] text-black' : 'bg-[#4A4458] text-white'}`}>
-                <input type="radio" name="type" value="document" checked={type === 'document'} onChange={() => setType('document')} className="sr-only" />
+              <label className={`flex items-center justify-center p-3 rounded-lg cursor-pointer transition-colors ${type === 'deck' ? 'bg-[#C8B4F3] text-black' : 'bg-[#4A4458] text-white'}`}>
+                <input type="radio" name="type" value="deck" checked={type === 'deck'} onChange={() => setType('deck')} className="sr-only" />
                 <Icon name="document" className="w-5 h-5 mr-2" />
                 <span className="font-semibold">Dek</span>
               </label>

@@ -5,7 +5,7 @@ export interface Deck {
   cardCount: number;
   progress: number;
   dueCount: number;
-  iconType: 'document' | 'folder';
+  type: 'deck' | 'folder';
   parentId: number | null;
 }
 
