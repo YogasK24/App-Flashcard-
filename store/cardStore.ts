@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { db } from '../services/databaseService';
 import { Deck, Card } from '../types';
 import { calculateSrsData, getNextDueDate } from '../services/cardService';
+import { shuffleArray, getDescendantDeckIds, getCardsInHierarchy, setupGameData } from '../utils/gameUtils';
 
 type GameType = 'pair-it' | 'guess-it' | 'recall-it' | 'type-it';
 
@@ -36,73 +37,6 @@ interface CardStoreState {
   recalculateAllDeckStats: () => Promise<void>;
   getCardCountInHierarchy: (folderId: number) => Promise<number>;
 }
-
-// Fungsi bantuan untuk mengacak array (Fisher-Yates shuffle)
-const shuffleArray = <T>(array: T[]): T[] => {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-};
-
-const getDescendantDeckIds = async (folderId: number): Promise<number[]> => {
-    const deckIds: number[] = [];
-    const queue: number[] = [folderId];
-    
-    // Ini kurang efisien, tetapi diperlukan tanpa struktur data yang lebih baik di memori.
-    const allDecks = await db.decks.toArray();
-    const childrenMap = allDecks.reduce((acc, deck) => {
-        const parentId = deck.parentId;
-        if (parentId === null) return acc;
-        if (!acc[parentId]) acc[parentId] = [];
-        acc[parentId].push(deck);
-        return acc;
-    }, {} as Record<number, Deck[]>);
-
-    while (queue.length > 0) {
-        const currentId = queue.shift()!;
-        const children = childrenMap[currentId] || [];
-
-        for (const child of children) {
-            if (child.type === 'deck') {
-                deckIds.push(child.id);
-            } else { // ini adalah folder
-                queue.push(child.id);
-            }
-        }
-    }
-    return deckIds;
-};
-
-/**
- * Mengambil semua kartu dalam hierarki dek atau folder tertentu.
- * Jika itemId adalah folder, ia akan mengambil kartu dari semua dek turunan.
- * Jika itemId adalah dek, ia hanya akan mengambil kartu dari dek tersebut.
- * @param itemId ID dari dek atau folder.
- * @returns Promise yang resolve ke array Card.
- */
-const getCardsInHierarchy = async (itemId: number): Promise<Card[]> => {
-    const item = await db.decks.get(itemId);
-    if (!item) {
-        console.error(`Item dengan ID ${itemId} tidak ditemukan.`);
-        return [];
-    }
-
-    let targetDeckIds: number[] = [];
-    if (item.type === 'folder') {
-        targetDeckIds = await getDescendantDeckIds(item.id);
-    } else {
-        targetDeckIds = [item.id];
-    }
-
-    if (targetDeckIds.length === 0) {
-        return [];
-    }
-    
-    return await db.cards.where('deckId').anyOf(targetDeckIds).toArray();
-};
-
 
 export const useCardStore = create<CardStoreState>((set, get) => ({
   quizDeck: null,
@@ -433,26 +367,12 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
       const item = await db.decks.get(deckId);
       if (!item) throw new Error("Item tidak ditemukan");
 
-      // Mengambil semua kartu yang relevan dari hierarki dek/folder
-      const allCardsInScope = await getCardsInHierarchy(deckId);
-
-      if (allCardsInScope.length === 0) {
-        console.log(`Tidak ada kartu yang ditemukan dalam ${item.type} '${item.title}' untuk memulai permainan.`);
-        return;
-      }
+      // Gunakan fungsi utilitas baru untuk mendapatkan kartu permainan
+      // 'front' digunakan sebagai placeholder karena parameter cardField saat ini tidak mengubah output
+      const cardsForGame = await setupGameData(deckId, quizMode, 'front');
       
-      let cardsToReview: Card[] = [];
-      const now = new Date();
-      
-      if (quizMode === 'simple') {
-        cardsToReview = allCardsInScope;
-      } else {
-        cardsToReview = allCardsInScope.filter(card => card.dueDate <= now);
-      }
-      
-      if (cardsToReview.length > 0) {
-        const shuffledCards = shuffleArray(cardsToReview);
-        set({ quizDeck: item, quizCards: shuffledCards, gameType, quizMode });
+      if (cardsForGame.length > 0) {
+        set({ quizDeck: item, quizCards: cardsForGame, gameType, quizMode });
       } else {
         console.log(`Tidak ada kartu untuk memulai permainan dengan mode: ${quizMode}`);
       }

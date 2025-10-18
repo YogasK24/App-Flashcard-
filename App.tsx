@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import Header from './components/Header';
-import StudyDirectionToggle from './components/StudyDirectionToggle';
 import DeckList from './components/DeckList';
 import FloatingActionButton from './components/FloatingActionButton';
 import { useCardStore } from './store/cardStore';
@@ -28,11 +27,105 @@ import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import MainMenu from './components/MainMenu';
 import ImportDeckModal from './components/ImportDeckModal';
+import SearchScopeToggle from './components/SearchScopeToggle';
+import Icon from './components/Icon';
 
 export interface CardSearchResult {
   card: Card;
   deck: Deck;
 }
+
+// =================================================================================
+// KOMPONEN OVERLAY PENCARIAN
+// =================================================================================
+interface SearchOverlayProps {
+  isOpen: boolean;
+  onClose: () => void;
+  searchQuery: string;
+  onSearchChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  searchScope: 'all' | 'folder' | 'deck' | 'card';
+  onSearchScopeChange: (scope: 'all' | 'folder' | 'deck' | 'card') => void;
+}
+
+const overlayVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.3 } },
+};
+
+const contentVariants: Variants = {
+    hidden: { y: '-100%', transition: { duration: 0.3, ease: 'easeOut' } },
+    visible: { y: '0%', transition: { duration: 0.3, ease: 'easeOut' } },
+};
+
+const SearchOverlay: React.FC<SearchOverlayProps> = ({ 
+    isOpen, 
+    onClose, 
+    searchQuery, 
+    onSearchChange, 
+    searchScope, 
+    onSearchScopeChange 
+}) => {
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (isOpen) {
+            // Penundaan singkat untuk memungkinkan transisi
+            setTimeout(() => searchInputRef.current?.focus(), 300);
+        }
+    }, [isOpen]);
+
+    const getPlaceholderText = () => {
+        switch (searchScope) {
+          case 'folder': return "Cari folder...";
+          case 'deck': return "Cari dek...";
+          case 'card': return "Cari kartu...";
+          case 'all':
+          default:
+            return "Cari di semua...";
+        }
+    };
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    key="search-overlay"
+                    className="fixed inset-0 z-30 bg-black/60"
+                    variants={overlayVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="hidden"
+                    onClick={onClose}
+                >
+                    <motion.div
+                        className="bg-gray-50 dark:bg-[#1C1B1F] text-gray-900 dark:text-[#E6E1E5] p-4"
+                        variants={contentVariants}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center w-full mb-4">
+                            <button onClick={onClose} aria-label="Tutup pencarian" className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors duration-200 mr-2">
+                                <Icon name="chevronLeft" className="w-6 h-6" />
+                            </button>
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                value={searchQuery}
+                                onChange={onSearchChange}
+                                placeholder={getPlaceholderText()}
+                                className="flex-grow bg-transparent text-lg focus:outline-none"
+                            />
+                        </div>
+                        <SearchScopeToggle
+                            currentScope={searchScope}
+                            onScopeChange={onSearchScopeChange}
+                        />
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+};
+// =================================================================================
 
 function App() {
   const { 
@@ -580,7 +673,7 @@ function App() {
         const effectiveOnItemClick = isSearching && !isCardSearch ? handleSearchResultClick : handleDeckItemClick;
         return (
             <>
-                <main className="px-4 pb-4 space-y-2 transition-all duration-300 ease-in-out">
+                <main className="flex-1 px-4 pb-20 space-y-2 transition-all duration-300 ease-in-out overflow-y-auto">
                     <Breadcrumbs 
                         currentDeckId={currentParentId} 
                         onNavigate={(id) => {
@@ -588,7 +681,6 @@ function App() {
                         setSelectedDeckId(null);
                         }} 
                     />
-                    <StudyDirectionToggle />
                     <div
                         key={currentParentId ?? 'root'}
                     >
@@ -642,7 +734,7 @@ function App() {
   };
 
   return (
-    <div className="bg-gray-50 dark:bg-[#1C1B1F] min-h-screen text-gray-900 dark:text-[#E6E1E5] font-sans relative">
+    <div className="bg-gray-50 dark:bg-[#1C1B1F] h-screen flex flex-col text-gray-900 dark:text-[#E6E1E5] font-sans relative">
       <style>{`
         .perspective-1000 { perspective: 1000px; }
         .transform-style-3d { transform-style: preserve-3d; }
@@ -669,13 +761,8 @@ function App() {
       
       {isHeaderVisible && (
         <Header 
-            isSearchVisible={isSearchVisible}
-            searchQuery={searchQuery}
-            onSearchChange={handleSearchChange}
             onToggleSearch={handleToggleSearch}
             onOpenSortFilter={handleOpenSortFilter}
-            searchScope={searchScope}
-            onSearchScopeChange={setSearchScope}
             onMenuClick={handleMenuClick}
             deckId={selectedDeckId}
             deckTitle={currentDeckForHeader?.title}
@@ -800,6 +887,15 @@ function App() {
           />
         )}
       </AnimatePresence>
+
+      <SearchOverlay
+          isOpen={isSearchVisible}
+          onClose={handleToggleSearch}
+          searchQuery={searchQuery}
+          onSearchChange={handleSearchChange}
+          searchScope={searchScope}
+          onSearchScopeChange={setSearchScope}
+      />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useThemeStore } from '../store/themeStore';
 
@@ -8,18 +9,17 @@ const StudyDirectionToggle: React.FC = () => {
   }));
 
   // Kelas dasar untuk kedua tombol, termasuk padding dan transisi
-  const baseButtonClasses = "px-3 py-1 rounded-full whitespace-nowrap transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 focus:ring-offset-gray-700";
+  const baseButtonClasses = "px-3 py-1 rounded-full whitespace-nowrap transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-offset-gray-200";
 
   return (
-    <div className="flex items-center justify-center text-sm mb-2 h-9">
-      <div className="inline-flex bg-gray-700 p-1 rounded-full text-sm font-medium">
+    <div className="inline-flex bg-gray-200 dark:bg-[#2B2930] p-1 rounded-full text-sm font-medium flex-shrink-0">
         <button
           onClick={() => setStudyDirection('kanji')}
           className={`
             ${baseButtonClasses} 
             ${studyDirection === 'kanji' 
               ? 'bg-violet-600 text-white shadow-md' // Kelas aktif
-              : 'text-gray-300 hover:bg-white/10' // Kelas non-aktif
+              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-300/50 dark:hover:bg-white/10' // Kelas non-aktif
             }`
           }
           aria-pressed={studyDirection === 'kanji'}
@@ -32,7 +32,7 @@ const StudyDirectionToggle: React.FC = () => {
             ${baseButtonClasses} 
             ${studyDirection === 'katakana' 
               ? 'bg-violet-600 text-white shadow-md' // Kelas aktif
-              : 'text-gray-300 hover:bg-white/10' // Kelas non-aktif
+              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-300/50 dark:hover:bg-white/10' // Kelas non-aktif
             }`
           }
           aria-pressed={studyDirection === 'katakana'}
@@ -40,7 +40,6 @@ const StudyDirectionToggle: React.FC = () => {
           日本語(片仮名)
         </button>
       </div>
-    </div>
   );
 };
 

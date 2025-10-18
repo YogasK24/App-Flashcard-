@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
@@ -92,18 +93,14 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
     },
   };
 
+  const hasCards = !loading && cards.length > 0;
+
   return (
-    <div className="flex flex-col h-full animate-fade-in-slow relative">
-      <main className="flex-grow px-4 overflow-y-auto pb-20 transition-all duration-300 ease-in-out">
+    <div className="flex flex-col flex-1 min-h-0 animate-fade-in-slow relative">
+      <main className={`flex-grow transition-all duration-300 ease-in-out ${hasCards ? 'px-4 overflow-y-auto pb-20' : 'flex flex-col items-center justify-center p-4'}`}>
         {loading ? (
           <div className="text-center text-gray-500 dark:text-[#C8C5CA]">Memuat kartu...</div>
-        ) : cards.length === 0 ? (
-          <div className="flex flex-col justify-center items-center h-48 text-center text-gray-500 dark:text-[#C8C5CA]">
-            <Icon name="document" className="w-16 h-16 mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Belum ada kartu</h3>
-            <p className="mt-1">Ayo buat yang pertama menggunakan tombol di bawah!</p>
-          </div>
-        ) : (
+        ) : hasCards ? (
           <motion.div
             key={deckId}
             variants={containerVariants}
@@ -120,6 +117,12 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
               />
             ))}
           </motion.div>
+        ) : (
+          <div className="flex flex-col items-center text-center text-gray-500 dark:text-[#C8C5CA]">
+            <Icon name="document" className="w-16 h-16 mb-4 opacity-50" />
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Belum ada kartu</h3>
+            <p className="mt-1">Ayo buat yang pertama menggunakan tombol di bawah!</p>
+          </div>
         )}
       </main>
       <FloatingActionButton 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface UseQuizTimerProps {
   key: any;
@@ -11,37 +11,43 @@ interface UseQuizTimerProps {
  * @param key - Kunci unik (misalnya, ID kartu) untuk me-reset timer saat berubah.
  * @param initialTime - Waktu awal hitung mundur dalam detik.
  * @param onTimeUp - Callback yang akan dipanggil saat waktu habis.
- * @returns {timeLeft, duration} - Waktu yang tersisa dan durasi awal.
+ * @returns {timeLeft, duration, stopTimer} - Waktu yang tersisa, durasi awal, dan fungsi untuk menghentikan timer.
  */
 export const useQuizTimer = ({ key, initialTime, onTimeUp }: UseQuizTimerProps) => {
   const [timeLeft, setTimeLeft] = useState(initialTime);
   const onTimeUpRef = useRef(onTimeUp);
+  const intervalIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Memperbarui referensi callback tanpa me-reset efek utama.
   useEffect(() => {
     onTimeUpRef.current = onTimeUp;
   }, [onTimeUp]);
 
+  const stopTimer = useCallback(() => {
+    if (intervalIdRef.current) {
+      clearInterval(intervalIdRef.current);
+      intervalIdRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
-    // Reset timer setiap kali kunci (misalnya, ID kartu) berubah.
+    stopTimer(); // Hentikan timer sebelumnya jika ada
     setTimeLeft(initialTime);
 
     if (initialTime <= 0) return;
 
-    const intervalId = setInterval(() => {
+    intervalIdRef.current = setInterval(() => {
       setTimeLeft(prevTime => {
         if (prevTime <= 1) {
-          clearInterval(intervalId);
-          onTimeUpRef.current(); // Panggil callback saat waktu habis.
+          if (intervalIdRef.current) clearInterval(intervalIdRef.current);
+          onTimeUpRef.current();
           return 0;
         }
         return prevTime - 1;
       });
     }, 1000);
 
-    // Bersihkan interval saat komponen di-unmount atau dependensi berubah.
-    return () => clearInterval(intervalId);
-  }, [key, initialTime]);
+    return stopTimer;
+  }, [key, initialTime, stopTimer]);
 
-  return { timeLeft, duration: initialTime };
+  return { timeLeft, duration: initialTime, stopTimer };
 };
