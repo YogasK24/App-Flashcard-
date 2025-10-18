@@ -31,7 +31,7 @@ const DeckList: React.FC<DeckListProps> = ({ decks, loading, onItemClick, onShow
   }
 
   return (
-    <motion.div className="space-y-3">
+    <motion.div className="space-y-2">
       {decks.map((deck) => (
         <DeckItem key={deck.id} deck={deck} onItemClick={onItemClick} onShowContextMenu={onShowContextMenu} />
       ))}

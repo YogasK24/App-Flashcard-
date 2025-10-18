@@ -56,6 +56,7 @@ function App() {
   const [currentParentDeck, setCurrentParentDeck] = useState<Deck | null>(null);
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [filter, setFilter] = useState<'kanji' | 'katakana'>('kanji');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
@@ -237,7 +238,7 @@ function App() {
         {selectedDeckId === null ? (
           <>
             <Header />
-            <main className="p-4 space-y-4">
+            <main className="px-4 pb-4 space-y-2">
               <Breadcrumbs 
                 currentDeckId={currentParentId} 
                 onNavigate={(id) => {
@@ -245,7 +246,7 @@ function App() {
                   setSelectedDeckId(null);
                 }} 
               />
-              <FilterBar />
+              <FilterBar filter={filter} onFilterChange={setFilter} />
               <motion.div
                 key={currentParentId ?? 'root'}
                 variants={containerVariants}

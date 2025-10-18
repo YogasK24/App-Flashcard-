@@ -1,22 +1,66 @@
 import React from 'react';
 import Icon from './Icon';
 
-const FilterBar: React.FC = () => {
+// Tipe untuk filter yang diterima sebagai prop
+type FilterType = 'kanji' | 'katakana';
+
+interface FilterBarProps {
+  filter: FilterType;
+  onFilterChange: (newFilter: FilterType) => void;
+}
+
+const FilterBar: React.FC<FilterBarProps> = ({ filter, onFilterChange }) => {
+  // Kelas dasar untuk kedua tombol, termasuk padding dan transisi
+  const baseButtonClasses = "px-3 py-1 rounded-full whitespace-nowrap transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 focus:ring-offset-gray-700";
+
   return (
-    <div className="flex items-center space-x-2 text-sm">
-      <button className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10">
-        <Icon name="search" className="w-5 h-5 text-gray-500 dark:text-[#C8C5CA]" />
-      </button>
-      <div className="flex items-center flex-grow space-x-2">
-        <button className="bg-gray-200 dark:bg-[#4A4458] text-gray-800 dark:text-white px-4 py-2 rounded-full">日本語(漢字)</button>
-        <button className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10">
-          <Icon name="swap" className="w-5 h-5" />
+    <div className="flex items-center justify-between space-x-2 text-sm mb-2">
+      {/* Kiri (Search) */}
+      <div>
+        <button className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex-shrink-0" aria-label="Cari">
+          <Icon name="search" className="w-5 h-5 text-gray-500 dark:text-[#C8C5CA]" />
         </button>
-        <button className="bg-gray-200 dark:bg-[#4A4458] text-gray-800 dark:text-white px-4 py-2 rounded-full">日本語(片仮名)</button>
       </div>
-      <button className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10">
-        <Icon name="filterList" className="w-5 h-5 text-gray-500 dark:text-[#C8C5CA]" />
-      </button>
+
+      {/* Tengah (Filter) */}
+      <div className="flex-1 flex justify-center">
+        {/* Container untuk segmented control */}
+        <div className="inline-flex bg-gray-700 p-1 rounded-full text-sm font-medium">
+          <button
+            onClick={() => onFilterChange('kanji')}
+            className={`
+              ${baseButtonClasses} 
+              ${filter === 'kanji' 
+                ? 'bg-violet-600 text-white shadow-md' // Kelas aktif
+                : 'text-gray-300 hover:bg-white/10' // Kelas non-aktif
+              }`
+            }
+            aria-pressed={filter === 'kanji'}
+          >
+            日本語(漢字)
+          </button>
+          <button
+            onClick={() => onFilterChange('katakana')}
+            className={`
+              ${baseButtonClasses} 
+              ${filter === 'katakana' 
+                ? 'bg-violet-600 text-white shadow-md' // Kelas aktif
+                : 'text-gray-300 hover:bg-white/10' // Kelas non-aktif
+              }`
+            }
+            aria-pressed={filter === 'katakana'}
+          >
+            日本語(片仮名)
+          </button>
+        </div>
+      </div>
+
+      {/* Kanan (Sort) */}
+      <div>
+        <button className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex-shrink-0" aria-label="Opsi filter lainnya">
+          <Icon name="filterList" className="w-5 h-5 text-gray-500 dark:text-[#C8C5CA]" />
+        </button>
+      </div>
     </div>
   );
 };

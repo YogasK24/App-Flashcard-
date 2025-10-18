@@ -26,13 +26,13 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ currentDeckId, onNavigate }) 
 
   // Mencegah pergeseran layout saat memuat dengan menampilkan placeholder.
   if (loading) {
-    return <div className="h-5 pb-2 animate-pulse"><div className="bg-gray-200 dark:bg-gray-700/50 h-4 w-1/3 rounded"></div></div>;
+    return <div className="h-5 animate-pulse"><div className="bg-gray-200 dark:bg-gray-700/50 h-4 w-1/3 rounded"></div></div>;
   }
   
   return (
     <motion.div 
       key={currentDeckId ?? 'root'} 
-      className="h-5 pb-2"
+      className="h-5"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
