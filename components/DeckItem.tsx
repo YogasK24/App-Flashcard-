@@ -6,9 +6,10 @@ import { useCardStore } from '../store/cardStore';
 interface DeckItemProps {
   deck: Deck;
   onNavigate: (deck: Deck) => void;
+  onShowContextMenu: (event: React.MouseEvent, deckId: number) => void;
 }
 
-const DeckItem: React.FC<DeckItemProps> = ({ deck, onNavigate }) => {
+const DeckItem: React.FC<DeckItemProps> = ({ deck, onNavigate, onShowContextMenu }) => {
   const { startQuiz } = useCardStore(state => ({
     startQuiz: state.startQuiz,
   }));
@@ -41,6 +42,10 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onNavigate }) => {
   return (
     <div 
       onClick={handleItemClick}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onShowContextMenu(e, deck.id);
+      }}
       className="bg-[#2B2930] p-4 rounded-lg flex items-center space-x-4 transition-colors cursor-pointer hover:bg-[#3A3841]"
       role="button"
       tabIndex={0}

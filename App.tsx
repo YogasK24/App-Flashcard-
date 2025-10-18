@@ -8,18 +8,46 @@ import Quiz from './pages/Quiz';
 import Breadcrumbs from './components/Breadcrumbs';
 import { Deck } from './types';
 import AddDeckModal from './components/AddDeckModal';
+import ContextMenu from './components/ContextMenu';
+import ConfirmDeleteModal from './components/ConfirmDeleteModal';
+import MoveDeckModal from './components/MoveDeckModal';
+import EditDeckModal from './components/EditDeckModal';
 
 function App() {
-  const { quizDeck, getDecksByParentId, addDeck: addDeckToDb } = useCardStore(state => ({
+  const { 
+    quizDeck, 
+    getDecksByParentId, 
+    addDeck, 
+    deleteDeck, 
+    updateDeckParent, 
+    getPossibleParentDecks,
+    updateDeckTitle,
+    duplicateDeck,
+  } = useCardStore(state => ({
     quizDeck: state.quizDeck,
     getDecksByParentId: state.getDecksByParentId,
-    addDeck: state.addDeck
+    addDeck: state.addDeck,
+    deleteDeck: state.deleteDeck,
+    updateDeckParent: state.updateDeckParent,
+    getPossibleParentDecks: state.getPossibleParentDecks,
+    updateDeckTitle: state.updateDeckTitle,
+    duplicateDeck: state.duplicateDeck,
   }));
 
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentParentId, setCurrentParentId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [contextMenuState, setContextMenuState] = useState({
+    isVisible: false,
+    x: 0,
+    y: 0,
+    deckId: null as number | null,
+  });
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ deckId: number; title: string } | null>(null);
+  const [moveDeckTarget, setMoveDeckTarget] = useState<number | null>(null);
+  const [editDeckTarget, setEditDeckTarget] = useState<Deck | null>(null);
+
 
   const fetchAndSetDecks = useCallback(async () => {
     setLoading(true);
@@ -37,9 +65,80 @@ function App() {
   };
   
   const handleAddDeck = async (title: string, type: 'document' | 'folder') => {
-    await addDeckToDb(title, type, currentParentId);
+    await addDeck(title, type, currentParentId);
     await fetchAndSetDecks();
-    setIsModalOpen(false); // Tutup modal setelah penambahan
+    setIsModalOpen(false);
+  };
+
+  const handleShowContextMenu = (event: React.MouseEvent, deckId: number) => {
+    const menuWidth = 192; // Sesuai dengan w-48 di Tailwind
+    const menuHeight = 176; // Perkiraan tinggi untuk 4 item menu
+    const padding = 10;   // Jarak dari tepi layar
+
+    let x = event.clientX;
+    let y = event.clientY;
+
+    if (x + menuWidth > window.innerWidth) {
+      x = window.innerWidth - menuWidth - padding;
+    }
+
+    if (y + menuHeight > window.innerHeight) {
+      y = window.innerHeight - menuHeight - padding;
+    }
+
+    setContextMenuState({
+      isVisible: true,
+      x,
+      y,
+      deckId,
+    });
+  };
+
+  const handleCloseContextMenu = () => {
+    setContextMenuState(prevState => ({ ...prevState, isVisible: false }));
+  };
+  
+  const handleRenameDeck = (deckId: number) => {
+    const deckToEdit = decks.find(d => d.id === deckId);
+    if (deckToEdit) {
+      setEditDeckTarget(deckToEdit);
+    }
+  };
+
+  const handleCopyDeck = async (deckId: number) => {
+    await duplicateDeck(deckId);
+    await fetchAndSetDecks();
+  };
+
+  const handleMoveDeck = (deckId: number) => {
+    setMoveDeckTarget(deckId);
+  };
+  
+  const handleDeleteDeck = (deckId: number) => {
+    const deckToDelete = decks.find(d => d.id === deckId);
+    if (deckToDelete) {
+      setDeleteConfirmation({ deckId: deckToDelete.id, title: deckToDelete.title });
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteConfirmation) {
+      await deleteDeck(deleteConfirmation.deckId);
+      setDeleteConfirmation(null);
+      await fetchAndSetDecks();
+    }
+  };
+
+  const handleConfirmRename = async (deckId: number, newTitle: string) => {
+    await updateDeckTitle(deckId, newTitle);
+    setEditDeckTarget(null);
+    await fetchAndSetDecks();
+  };
+  
+  const handleConfirmMove = async (deckId: number, newParentId: number | null) => {
+    await updateDeckParent(deckId, newParentId);
+    setMoveDeckTarget(null);
+    await fetchAndSetDecks();
   };
 
   const MainScreen = () => (
@@ -48,7 +147,7 @@ function App() {
       <main className="p-4 space-y-4">
         <Breadcrumbs currentDeckId={currentParentId} onNavigate={setCurrentParentId} />
         <FilterBar />
-        <DeckList decks={decks} loading={loading} onNavigate={handleNavigateTo} />
+        <DeckList decks={decks} loading={loading} onNavigate={handleNavigateTo} onShowContextMenu={handleShowContextMenu} />
       </main>
       <FloatingActionButton onAdd={() => setIsModalOpen(true)} />
       <AddDeckModal 
@@ -69,6 +168,47 @@ function App() {
       `}</style>
       
       {quizDeck ? <Quiz /> : <MainScreen />}
+
+      {contextMenuState.isVisible && contextMenuState.deckId !== null && (
+        <ContextMenu
+          x={contextMenuState.x}
+          y={contextMenuState.y}
+          deckId={contextMenuState.deckId}
+          onClose={handleCloseContextMenu}
+          onRename={handleRenameDeck}
+          onCopy={handleCopyDeck}
+          onMove={handleMoveDeck}
+          onDelete={handleDeleteDeck}
+        />
+      )}
+      
+      {deleteConfirmation && (
+        <ConfirmDeleteModal
+          isOpen={!!deleteConfirmation}
+          deckTitle={deleteConfirmation.title}
+          onClose={() => setDeleteConfirmation(null)}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
+
+      {moveDeckTarget !== null && (
+        <MoveDeckModal
+          isOpen={moveDeckTarget !== null}
+          deckToMoveId={moveDeckTarget}
+          onClose={() => setMoveDeckTarget(null)}
+          onMove={handleConfirmMove}
+          getPossibleParents={getPossibleParentDecks}
+        />
+      )}
+      
+      {editDeckTarget && (
+        <EditDeckModal
+          isOpen={!!editDeckTarget}
+          deckToEdit={editDeckTarget}
+          onClose={() => setEditDeckTarget(null)}
+          onSave={handleConfirmRename}
+        />
+      )}
     </div>
   );
 }

@@ -7,9 +7,10 @@ interface DeckListProps {
   decks: Deck[];
   loading: boolean;
   onNavigate: (deck: Deck) => void;
+  onShowContextMenu: (event: React.MouseEvent, deckId: number) => void;
 }
 
-const DeckList: React.FC<DeckListProps> = ({ decks, loading, onNavigate }) => {
+const DeckList: React.FC<DeckListProps> = ({ decks, loading, onNavigate, onShowContextMenu }) => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-48">
@@ -31,7 +32,7 @@ const DeckList: React.FC<DeckListProps> = ({ decks, loading, onNavigate }) => {
   return (
     <div className="space-y-3">
       {decks.map((deck) => (
-        <DeckItem key={deck.id} deck={deck} onNavigate={onNavigate} />
+        <DeckItem key={deck.id} deck={deck} onNavigate={onNavigate} onShowContextMenu={onShowContextMenu} />
       ))}
     </div>
   );
