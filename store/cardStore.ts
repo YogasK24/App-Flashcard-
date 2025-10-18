@@ -28,6 +28,7 @@ interface CardStoreState {
   getDeckPath: (deckId: number | null) => Promise<Deck[]>;
   getPossibleParentDecks: (deckId: number) => Promise<Deck[]>;
   getDeckStats: (deckId: number) => Promise<{ newCount: number; repeatCount: number; learnedCount: number; totalCount: number; }>;
+  recalculateAllDeckStats: () => Promise<void>;
 }
 
 // Fungsi bantuan untuk mengacak array (Fisher-Yates shuffle)
@@ -45,6 +46,53 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
   quizCards: [],
   quizMode: null,
   gameType: null,
+
+  recalculateAllDeckStats: async () => {
+    try {
+        await db.transaction('rw', db.decks, db.cards, async () => {
+            const allDecks = await db.decks.toArray();
+            const allCards = await db.cards.toArray();
+            const now = new Date();
+
+            const cardsByDeckId = allCards.reduce((acc, card) => {
+                if (!acc[card.deckId]) {
+                    acc[card.deckId] = [];
+                }
+                acc[card.deckId].push(card);
+                return acc;
+            }, {} as Record<number, Card[]>);
+
+            const updatedDecks: Deck[] = [];
+
+            for (const deck of allDecks) {
+                if (deck.type === 'deck') {
+                    const deckCards = cardsByDeckId[deck.id] || [];
+                    const cardCount = deckCards.length;
+                    const dueCount = deckCards.filter(c => c.dueDate <= now).length;
+                    const studiedCount = deckCards.filter(c => c.interval > 0).length;
+                    const progress = cardCount > 0 ? (studiedCount / cardCount) * 100 : 0;
+
+                    // Hanya perbarui jika ada perubahan untuk efisiensi
+                    if (deck.cardCount !== cardCount || deck.dueCount !== dueCount || Math.round(deck.progress) !== Math.round(progress)) {
+                         updatedDecks.push({
+                            ...deck,
+                            cardCount,
+                            dueCount,
+                            progress,
+                        });
+                    }
+                }
+            }
+            
+            if (updatedDecks.length > 0) {
+                await db.decks.bulkPut(updatedDecks);
+                console.log(`Statistik diperbarui untuk ${updatedDecks.length} dek.`);
+            }
+        });
+    } catch (error) {
+        console.error("Gagal melakukan rekalkulasi statistik dek:", error);
+    }
+  },
 
   addDeck: async (title: string, type: 'deck' | 'folder', parentId: number | null) => {
     try {
@@ -148,20 +196,36 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
 
   addCardToDeck: async (deckId: number, front: string, back: string, transcription?: string, example?: string, imageUrl?: string) => {
     try {
-      const newCard: Omit<Card, 'id'> = {
-          deckId,
-          front,
-          back,
-          transcription,
-          example,
-          imageUrl,
-          dueDate: new Date(),
-          interval: 0,
-          easeFactor: 2.5,
-      };
-      await db.cards.add(newCard as Card);
+      await db.transaction('rw', db.cards, db.decks, async () => {
+        // 1. Tambahkan kartu baru
+        const newCard: Omit<Card, 'id'> = {
+            deckId,
+            front,
+            back,
+            transcription,
+            example,
+            imageUrl,
+            dueDate: new Date(), // Kartu baru langsung jatuh tempo
+            interval: 0,
+            easeFactor: 2.5,
+        };
+        await db.cards.add(newCard as Card);
+
+        // 2. Hitung ulang statistik dek
+        const cardCount = await db.cards.where({ deckId }).count();
+        const dueCount = await db.cards.where({ deckId }).and(card => card.dueDate <= new Date()).count();
+        const studiedCount = await db.cards.where({ deckId }).filter(c => c.interval > 0).count();
+        const progress = cardCount > 0 ? (studiedCount / cardCount) * 100 : 0;
+        
+        // 3. Perbarui dek induk dengan statistik baru
+        await db.decks.update(deckId, {
+            cardCount,
+            dueCount,
+            progress
+        });
+      });
     } catch (error) {
-        console.error("Gagal menambahkan kartu:", error);
+        console.error("Gagal menambahkan kartu dan memperbarui statistik dek:", error);
     }
   },
 
@@ -180,10 +244,24 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
             console.error(`Kartu dengan ID ${cardId} tidak ditemukan.`);
             return;
         }
+        const { deckId } = cardToDelete; // Dapatkan deckId sebelum menghapus
 
         await db.transaction('rw', db.cards, db.decks, async () => {
-            // Hapus kartu
+            // 1. Hapus kartu
             await db.cards.delete(cardId);
+            
+            // 2. Hitung ulang statistik dek
+            const cardCount = await db.cards.where({ deckId }).count();
+            const dueCount = await db.cards.where({ deckId }).and(card => card.dueDate <= new Date()).count();
+            const studiedCount = await db.cards.where({ deckId }).filter(c => c.interval > 0).count();
+            const progress = cardCount > 0 ? (studiedCount / cardCount) * 100 : 0;
+            
+            // 3. Perbarui dek induk dengan statistik baru
+            await db.decks.update(deckId, {
+                cardCount,
+                dueCount,
+                progress
+            });
         });
 
     } catch (error) {
@@ -285,24 +363,10 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
         ? await db.decks.filter(deck => deck.parentId === null).toArray()
         : await db.decks.where({ parentId: parentId }).toArray();
       
-      const decksWithCounts = await Promise.all(
-        decksFromDb.map(async (deck) => {
-          if (deck.type === 'folder') {
-            return { ...deck, cardCount: 0, dueCount: 0, progress: 0 };
-          }
-          const cardCount = await db.cards.where('deckId').equals(deck.id!).count();
-          const dueCount = await db.cards
-            .where('deckId')
-            .equals(deck.id!)
-            .and((card) => card.dueDate <= new Date())
-            .count();
-          const studiedCount = await db.cards.where({ deckId: deck.id! }).filter(c => c.interval > 0).count();
-          const progress = cardCount > 0 ? (studiedCount / cardCount) * 100 : 0;
-
-          return { ...deck, cardCount, dueCount, progress };
-        })
-      );
-      return decksWithCounts;
+      // Catatan: Statistik yang ditampilkan di sini sekarang sudah benar
+      // karena recalculateAllDeckStats() sudah berjalan.
+      // Kita tidak perlu menghitung ulang di sini lagi, cukup baca dari DB.
+      return decksFromDb;
     } catch (error) {
       console.error(`Gagal mengambil dek berdasarkan parentId ${parentId}:`, error);
       return [];

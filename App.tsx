@@ -35,6 +35,7 @@ function App() {
     getDeckById,
     updateCard,
     deleteCard,
+    recalculateAllDeckStats,
   } = useCardStore(state => ({
     quizDeck: state.quizDeck,
     gameType: state.gameType,
@@ -48,11 +49,13 @@ function App() {
     getDeckById: state.getDeckById,
     updateCard: state.updateCard,
     deleteCard: state.deleteCard,
+    recalculateAllDeckStats: state.recalculateAllDeckStats,
   }));
   const { theme } = useThemeStore();
 
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [currentParentId, setCurrentParentId] = useState<number | null>(null);
   const [currentParentDeck, setCurrentParentDeck] = useState<Deck | null>(null);
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
@@ -81,6 +84,23 @@ function App() {
     root.classList.add(theme);
   }, [theme]);
 
+  // Efek untuk inisialisasi aplikasi satu kali
+  useEffect(() => {
+    const initializeApp = async () => {
+        await recalculateAllDeckStats();
+        setIsInitialized(true); // Tandai bahwa inisialisasi selesai
+    };
+    initializeApp();
+  }, [recalculateAllDeckStats]);
+
+  useEffect(() => {
+    // Saat kuis/permainan berakhir (quizDeck/gameType menjadi null), reset status loading.
+    // Ini memperbaiki bug di mana tombol putar tetap menampilkan spinner setelah kembali ke daftar dek.
+    if (!quizDeck && !gameType && openingDeckId !== null) {
+      setOpeningDeckId(null);
+    }
+  }, [quizDeck, gameType, openingDeckId]);
+
   const fetchAndSetDecks = useCallback(async () => {
     setLoading(true);
     if (currentParentId) {
@@ -95,8 +115,11 @@ function App() {
   }, [currentParentId, getDecksByParentId, getDeckById]);
 
   useEffect(() => {
-    fetchAndSetDecks();
-  }, [fetchAndSetDecks]);
+    // Hanya muat dek setelah aplikasi diinisialisasi
+    if (isInitialized) {
+        fetchAndSetDecks();
+    }
+  }, [fetchAndSetDecks, isInitialized, refreshKey]);
 
   const handleDeckItemClick = (deck: Deck) => {
     if (deck.type === 'folder') {
@@ -109,7 +132,7 @@ function App() {
   
   const handleAddDeck = async (title: string, type: 'deck' | 'folder') => {
     await addDeck(title, type, currentParentId);
-    await fetchAndSetDecks();
+    setRefreshKey(k => k + 1); // Gunakan refreshKey untuk memuat ulang
     setIsModalOpen(false);
   };
 
@@ -154,7 +177,7 @@ function App() {
 
   const handleCopyDeck = async (deckId: number) => {
     await duplicateDeck(deckId);
-    await fetchAndSetDecks();
+    setRefreshKey(k => k + 1);
   };
 
   const handleMoveDeck = (deckId: number) => {
@@ -172,20 +195,20 @@ function App() {
     if (deleteConfirmation) {
       await deleteDeck(deleteConfirmation.deckId);
       setDeleteConfirmation(null);
-      await fetchAndSetDecks();
+      setRefreshKey(k => k + 1);
     }
   };
 
   const handleConfirmRename = async (deckId: number, newTitle: string) => {
     await updateDeckTitle(deckId, newTitle);
     setEditDeckTarget(null);
-    await fetchAndSetDecks();
+    setRefreshKey(k => k + 1);
   };
   
   const handleConfirmMove = async (deckId: number, newParentId: number | null) => {
     await updateDeckParent(deckId, newParentId);
     setMoveDeckTarget(null);
-    await fetchAndSetDecks();
+    setRefreshKey(k => k + 1);
   };
   
   const handleEditCard = (card: Card) => {
@@ -207,7 +230,6 @@ function App() {
       await deleteCard(deleteCardTarget.id);
       setDeleteCardTarget(null);
       setRefreshKey(k => k + 1);
-      await fetchAndSetDecks(); // Muat ulang untuk memperbarui jumlah kartu
     }
   };
   
@@ -251,7 +273,7 @@ function App() {
               >
                 <DeckList 
                   decks={decks} 
-                  loading={loading} 
+                  loading={loading || !isInitialized} 
                   onItemClick={handleDeckItemClick} 
                   onShowContextMenu={handleShowContextMenu} 
                   onPlayClick={handlePlayClick} 
@@ -271,7 +293,10 @@ function App() {
         ) : (
           <CardListView 
             deckId={selectedDeckId} 
-            onBack={() => setSelectedDeckId(null)} 
+            onBack={() => {
+                setSelectedDeckId(null);
+                setRefreshKey(k => k + 1); // Segarkan daftar dek saat kembali
+            }} 
             refreshKey={refreshKey}
             onEditCard={handleEditCard}
             onDeleteCard={handleDeleteCard}
