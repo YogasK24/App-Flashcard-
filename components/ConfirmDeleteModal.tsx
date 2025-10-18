@@ -21,9 +21,9 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({ isOpen, deckTit
   return (
     <div
       onClick={handleBackdropClick}
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fade-in-backdrop"
     >
-      <div className="bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl">
+      <div className="bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl animate-fade-in-content">
         <h2 className="text-xl font-bold text-white mb-4">Konfirmasi Penghapusan</h2>
         <p className="text-[#C8C5CA] mb-6">
           Apakah Anda yakin ingin menghapus "<strong>{deckTitle}</strong>"? Semua dek dan kartu di dalamnya juga akan dihapus secara permanen. Tindakan ini tidak dapat diurungkan.

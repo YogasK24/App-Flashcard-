@@ -77,9 +77,9 @@ const MoveDeckModal: React.FC<MoveDeckModalProps> = ({ isOpen, deckToMoveId, onC
   return (
     <div
       onClick={handleBackdropClick}
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fade-in-backdrop"
     >
-      <div className="bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl">
+      <div className="bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl animate-fade-in-content">
         <h2 className="text-xl font-bold text-white mb-4">Pindahkan ke...</h2>
         
         <div className="mb-6">

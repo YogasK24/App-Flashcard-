@@ -147,7 +147,9 @@ function App() {
       <main className="p-4 space-y-4">
         <Breadcrumbs currentDeckId={currentParentId} onNavigate={setCurrentParentId} />
         <FilterBar />
-        <DeckList decks={decks} loading={loading} onNavigate={handleNavigateTo} onShowContextMenu={handleShowContextMenu} />
+        <div key={currentParentId ?? 'root'} className="animate-fade-in-slow">
+            <DeckList decks={decks} loading={loading} onNavigate={handleNavigateTo} onShowContextMenu={handleShowContextMenu} />
+        </div>
       </main>
       <FloatingActionButton onAdd={() => setIsModalOpen(true)} />
       <AddDeckModal 
@@ -165,6 +167,31 @@ function App() {
         .transform-style-3d { transform-style: preserve-3d; }
         .rotate-y-180 { transform: rotateY(180deg); }
         .backface-hidden { backface-visibility: hidden; }
+
+        /* Animasi */
+        @keyframes fade-in-slow {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-fade-in-slow {
+          animation: fade-in-slow 0.5s ease-out forwards;
+        }
+
+        @keyframes fade-in-backdrop {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-fade-in-backdrop {
+          animation: fade-in-backdrop 0.3s ease-out forwards;
+        }
+
+        @keyframes fade-in-content {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .animate-fade-in-content {
+          animation: fade-in-content 0.3s ease-out forwards;
+        }
       `}</style>
       
       {quizDeck ? <Quiz /> : <MainScreen />}

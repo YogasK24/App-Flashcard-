@@ -46,7 +46,7 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onNavigate, onShowContextMenu
         e.preventDefault();
         onShowContextMenu(e, deck.id);
       }}
-      className="bg-[#2B2930] p-4 rounded-lg flex items-center space-x-4 transition-colors cursor-pointer hover:bg-[#3A3841]"
+      className="bg-[#2B2930] p-4 rounded-lg flex items-center space-x-4 cursor-pointer hover:bg-[#3A3841] transition-all duration-200 ease-in-out hover:scale-105 active:scale-95"
       role="button"
       tabIndex={0}
       onKeyPress={(e) => (e.key === 'Enter') && handleItemClick()}
@@ -73,7 +73,7 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onNavigate, onShowContextMenu
         <button
           onClick={handlePlay}
           disabled={deck.dueCount === 0}
-          className="p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10"
+          className="p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10 transition-transform duration-200 ease-in-out hover:scale-105 active:scale-95"
           aria-label={`Mulai kuis untuk ${deck.title}`}
         >
           <Icon name="play" className="w-6 h-6 text-[#C8B4F3]" />

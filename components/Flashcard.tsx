@@ -10,7 +10,7 @@ const Flashcard: React.FC<FlashcardProps> = ({ front, back, isFlipped }) => {
   return (
     <div className="w-full h-64 perspective-1000">
       <div
-        className={`relative w-full h-full transition-transform duration-700 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}
+        className={`relative w-full h-full transform transition-all duration-500 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}
       >
         {/* Depan kartu */}
         <div className="absolute w-full h-full bg-[#4A4458] rounded-xl flex items-center justify-center p-6 backface-hidden">
