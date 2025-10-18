@@ -1,17 +1,25 @@
 import React from 'react';
+import { motion, Variants } from 'framer-motion';
 
 interface ConfirmDeleteCardModalProps {
-  isOpen: boolean;
   cardFront: string;
   onClose: () => void;
   onConfirm: () => void;
 }
 
-const ConfirmDeleteCardModal: React.FC<ConfirmDeleteCardModalProps> = ({ isOpen, cardFront, onClose, onConfirm }) => {
-  if (!isOpen) {
-    return null;
-  }
+const backdropVariants: Variants = {
+  visible: { opacity: 1 },
+  hidden: { opacity: 0 },
+  exit: { opacity: 0 }
+};
 
+const modalVariants: Variants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { duration: 0.2, ease: 'easeOut' } },
+  exit: { y: 20, opacity: 0, transition: { duration: 0.2, ease: 'easeIn' } }
+};
+
+const ConfirmDeleteCardModal: React.FC<ConfirmDeleteCardModalProps> = ({ cardFront, onClose, onConfirm }) => {
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -19,11 +27,19 @@ const ConfirmDeleteCardModal: React.FC<ConfirmDeleteCardModalProps> = ({ isOpen,
   };
 
   return (
-    <div
+    <motion.div
       onClick={handleBackdropClick}
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fade-in-backdrop"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      variants={backdropVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
     >
-      <div className="bg-white dark:bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl animate-fade-in-content">
+      <motion.div
+        onClick={e => e.stopPropagation()}
+        className="bg-white dark:bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl"
+        variants={modalVariants}
+      >
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Hapus Kartu</h2>
         <p className="text-gray-600 dark:text-[#C8C5CA] mb-6">
           Apakah Anda yakin ingin menghapus kartu "<strong>{cardFront}</strong>"? Tindakan ini tidak dapat diurungkan.
@@ -44,8 +60,8 @@ const ConfirmDeleteCardModal: React.FC<ConfirmDeleteCardModalProps> = ({ isOpen,
             Hapus
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

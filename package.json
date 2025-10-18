@@ -14,7 +14,9 @@
     "@google/genai": "^1.25.0",
     "dexie": "^4.2.1",
     "zustand": "^5.0.8",
-    "framer-motion": "^11.3.8"
+    "framer-motion": "^11.3.8",
+    "xlsx": "latest",
+    "papaparse": "^5.4.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

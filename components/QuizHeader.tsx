@@ -15,7 +15,7 @@ const QuizHeader: React.FC<QuizHeaderProps> = ({ currentCardIndex, totalCards, o
     <header className="flex justify-between items-center w-full mb-4">
       {/* Sisi Kiri: Tombol Kembali, Judul & Penghitung */}
       <div className="flex items-center space-x-2 min-w-0">
-        <button onClick={endQuiz} aria-label="Kembali ke dek" className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex-shrink-0">
+        <button onClick={endQuiz} aria-label="Kembali ke dek" className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex-shrink-0 transition-colors duration-200">
           <Icon name="chevronLeft" className="w-6 h-6 text-gray-800 dark:text-[#E6E1E5]" />
         </button>
         <h2 className="text-xl font-semibold text-gray-900 dark:text-[#E6E1E5] truncate">{quizDeck?.title || 'Kuis'}</h2>
@@ -24,7 +24,7 @@ const QuizHeader: React.FC<QuizHeaderProps> = ({ currentCardIndex, totalCards, o
 
       {/* Sisi Kanan: Tombol Opsi */}
       <div className="flex items-center flex-shrink-0">
-        <button onClick={onOpenSettings} aria-label="Pengaturan" className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10">
+        <button onClick={onOpenSettings} aria-label="Pengaturan" className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors duration-200">
           <Icon name="moreVert" className="w-6 h-6 text-gray-800 dark:text-[#E6E1E5]" />
         </button>
       </div>

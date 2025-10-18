@@ -89,4 +89,4 @@ const CardListItem: React.FC<CardListItemProps> = ({ card, onEdit, onDelete, hig
   );
 };
 
-export default CardListItem;
+export default React.memo(CardListItem);

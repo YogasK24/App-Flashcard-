@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
 import { Card, Deck } from '../types';
 import Icon from './Icon';
@@ -94,13 +94,7 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
 
   return (
     <div className="flex flex-col h-full animate-fade-in-slow relative">
-      <header className="p-4 flex items-center space-x-4">
-        <button onClick={onBack} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10" aria-label="Kembali">
-          <Icon name="chevronLeft" className="w-6 h-6" />
-        </button>
-        <h2 className="text-xl font-semibold">{deck?.title || 'Memuat...'}</h2>
-      </header>
-      <main className="flex-grow px-4 overflow-y-auto pb-20">
+      <main className="flex-grow px-4 overflow-y-auto pb-20 transition-all duration-300 ease-in-out">
         {loading ? (
           <div className="text-center text-gray-500 dark:text-[#C8C5CA]">Memuat kartu...</div>
         ) : cards.length === 0 ? (
@@ -111,6 +105,7 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
           </div>
         ) : (
           <motion.div
+            key={deckId}
             variants={containerVariants}
             initial="hidden"
             animate="visible"
@@ -131,11 +126,15 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
         onAdd={() => setIsAddCardModalOpen(true)}
         text="Tambah Kartu"
       />
-      <AddCardModal
-        isOpen={isAddCardModalOpen}
-        onClose={() => setIsAddCardModalOpen(false)}
-        onAddCard={handleAddCard}
-      />
+      <AnimatePresence>
+        {isAddCardModalOpen && (
+          <AddCardModal
+            key="add-card-modal"
+            onClose={() => setIsAddCardModalOpen(false)}
+            onAddCard={handleAddCard}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

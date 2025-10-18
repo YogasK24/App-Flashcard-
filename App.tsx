@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import StudyDirectionToggle from './components/StudyDirectionToggle';
@@ -23,6 +23,10 @@ import { initializeTTS } from './services/ttsService';
 import SortFilterModal from './components/SortFilterModal';
 import { db } from './services/databaseService';
 import CardSearchResultList from './components/CardSearchResultList';
+import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
+import MainMenu from './components/MainMenu';
+import ImportDeckModal from './components/ImportDeckModal';
 
 export interface CardSearchResult {
   card: Card;
@@ -68,6 +72,7 @@ function App() {
   const [currentParentId, setCurrentParentId] = useState<number | null>(null);
   const [currentParentDeck, setCurrentParentDeck] = useState<Deck | null>(null);
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
+  const [currentDeckForHeader, setCurrentDeckForHeader] = useState<Deck | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -94,6 +99,11 @@ function App() {
   const [highlightedItemId, setHighlightedItemId] = useState<number | null>(null);
   const [cardSearchResults, setCardSearchResults] = useState<CardSearchResult[]>([]);
   const [cardIdToHighlight, setCardIdToHighlight] = useState<number | null>(null);
+
+  // State untuk fungsionalitas impor
+  const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
+  const [importModalData, setImportModalData] = useState<{ headers: string[], rows: string[][], fileName: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     initializeTTS(); // Pastikan fungsi inisialisasi ini dipanggil sekali saat komponen dimuat.
@@ -143,6 +153,18 @@ function App() {
       return () => clearTimeout(timer);
     }
   }, [highlightedItemId]);
+
+  useEffect(() => {
+    if (selectedDeckId !== null) {
+        const fetchDeck = async () => {
+            const deck = await getDeckById(selectedDeckId);
+            setCurrentDeckForHeader(deck || null);
+        };
+        fetchDeck();
+    } else {
+        setCurrentDeckForHeader(null);
+    }
+  }, [selectedDeckId, getDeckById]);
 
   const fetchAndSetDecks = useCallback(async () => {
     setLoading(true);
@@ -247,54 +269,62 @@ function App() {
   
   }, [decks, searchQuery, searchScope, filterOption, sortOption, isInitialized]);
 
-  const handleToggleSearch = () => {
+  const handleToggleSearch = useCallback(() => {
     setIsSearchVisible(prev => {
-      // Jika kita akan menyembunyikan bilah pencarian, bersihkan kueri
       if (prev) {
         setSearchQuery('');
       }
       return !prev;
     });
-  };
+  }, []);
 
-  const handleDeckItemClick = (deck: Deck) => {
+  const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
+  }, []);
+  
+  const handleOpenSortFilter = useCallback(() => {
+    setIsSortFilterModalOpen(true);
+  }, []);
+  
+  const handleMenuClick = useCallback(() => {
+    setIsMainMenuOpen(true);
+  }, []);
+
+  const handleDeckItemClick = useCallback((deck: Deck) => {
     if (deck.type === 'folder') {
       setCurrentParentId(deck.id);
       setSelectedDeckId(null);
     } else {
       setSelectedDeckId(deck.id);
     }
-  };
+  }, []);
   
-  const handleSearchResultClick = async (deck: Deck) => {
-    // Navigasikan ke folder induk dari hasil pencarian
+  const handleSearchResultClick = useCallback((deck: Deck) => {
     setCurrentParentId(deck.parentId);
-    // Atur item yang akan disorot
     setHighlightedItemId(deck.id);
-    // Sembunyikan UI pencarian
-    handleToggleSearch(); // Ini juga akan menghapus kueri
-  };
+    handleToggleSearch();
+  }, [handleToggleSearch]);
 
-  const handleCardSearchResultClick = (result: CardSearchResult) => {
+  const handleCardSearchResultClick = useCallback((result: CardSearchResult) => {
     setSelectedDeckId(result.deck.id);
     setCardIdToHighlight(result.card.id!);
-    handleToggleSearch(); // Sembunyikan pencarian dan hapus kueri
-  };
+    handleToggleSearch();
+  }, [handleToggleSearch]);
 
-  const handleAddDeck = async (title: string, type: 'deck' | 'folder') => {
+  const handleAddDeck = useCallback(async (title: string, type: 'deck' | 'folder') => {
     await addDeck(title, type, currentParentId);
-    setRefreshKey(k => k + 1); // Gunakan refreshKey untuk memuat ulang
+    setRefreshKey(k => k + 1);
     setIsModalOpen(false);
-  };
+  }, [addDeck, currentParentId]);
 
-  const handleFabClick = () => {
+  const handleFabClick = useCallback(() => {
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleShowContextMenu = (event: React.MouseEvent, deckId: number) => {
-    const menuWidth = 192; // Sesuai dengan w-48 di Tailwind
-    const menuHeight = 176; // Perkiraan tinggi untuk 4 item menu
-    const padding = 10;   // Jarak dari tepi layar
+  const handleShowContextMenu = useCallback((event: React.MouseEvent, deckId: number) => {
+    const menuWidth = 192;
+    const menuHeight = 176;
+    const padding = 10;
 
     let x = event.clientX;
     let y = event.clientY;
@@ -313,169 +343,214 @@ function App() {
       y,
       deckId,
     });
-  };
+  }, []);
 
-  const handleCloseContextMenu = () => {
+  const handleCloseContextMenu = useCallback(() => {
     setContextMenuState(prevState => ({ ...prevState, isVisible: false }));
-  };
+  }, []);
   
-  const handleRenameDeck = (deckId: number) => {
+  const handleRenameDeck = useCallback((deckId: number) => {
     const deckToEdit = decks.find(d => d.id === deckId);
     if (deckToEdit) {
       setEditDeckTarget(deckToEdit);
     }
-  };
+  }, [decks]);
 
-  const handleCopyDeck = async (deckId: number) => {
+  const handleCopyDeck = useCallback(async (deckId: number) => {
     await duplicateDeck(deckId);
     setRefreshKey(k => k + 1);
-  };
+  }, [duplicateDeck]);
 
-  const handleMoveDeck = (deckId: number) => {
+  const handleMoveDeck = useCallback((deckId: number) => {
     setMoveDeckTarget(deckId);
-  };
+  }, []);
   
-  const handleDeleteDeck = (deckId: number) => {
+  const handleDeleteDeck = useCallback((deckId: number) => {
     const deckToDelete = decks.find(d => d.id === deckId);
     if (deckToDelete) {
       setDeleteConfirmation({ deckId: deckToDelete.id, title: deckToDelete.title });
     }
-  };
+  }, [decks]);
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = useCallback(async () => {
     if (deleteConfirmation) {
       await deleteDeck(deleteConfirmation.deckId);
       setDeleteConfirmation(null);
       setRefreshKey(k => k + 1);
     }
-  };
+  }, [deleteConfirmation, deleteDeck]);
 
-  const handleConfirmRename = async (deckId: number, newTitle: string) => {
+  const handleConfirmRename = useCallback(async (deckId: number, newTitle: string) => {
     await updateDeckTitle(deckId, newTitle);
     setEditDeckTarget(null);
     setRefreshKey(k => k + 1);
-  };
+  }, [updateDeckTitle]);
   
-  const handleConfirmMove = async (deckId: number, newParentId: number | null) => {
+  const handleConfirmMove = useCallback(async (deckId: number, newParentId: number | null) => {
     await updateDeckParent(deckId, newParentId);
     setMoveDeckTarget(null);
     setRefreshKey(k => k + 1);
-  };
+  }, [updateDeckParent]);
   
-  const handleDeleteCard = (card: Card) => {
+  const handleDeleteCard = useCallback((card: Card) => {
     setDeleteCardTarget(card);
-  };
+  }, []);
 
-  const handleSaveEditedCard = async (cardId: number, data: Partial<Omit<Card, 'id'>>) => {
+  const handleSaveEditedCard = useCallback(async (cardId: number, data: Partial<Omit<Card, 'id'>>) => {
     await updateCard(cardId, data);
-    setCardToEdit(null); // Kembali ke daftar kartu
-    setRefreshKey(k => k + 1); // Segarkan daftar kartu
-  };
+    setCardToEdit(null);
+    setRefreshKey(k => k + 1);
+  }, [updateCard]);
 
-  const handleConfirmDeleteCard = async () => {
+  const handleConfirmDeleteCard = useCallback(async () => {
     if (deleteCardTarget?.id) {
       await deleteCard(deleteCardTarget.id);
       setDeleteCardTarget(null);
       setRefreshKey(k => k + 1);
     }
-  };
+  }, [deleteCard, deleteCardTarget]);
   
-  const handlePlayClick = (deckId: number) => {
+  const handlePlayClick = useCallback((deckId: number) => {
     setOpeningDeckId(deckId);
     setDeckIdToQuiz(deckId);
     setIsQuizModeSelectorOpen(true);
-  };
+  }, []);
 
-  const MainScreen = () => {
-    const containerVariants = {
-      hidden: { opacity: 0 },
-      visible: {
-        opacity: 1,
-        transition: {
-          staggerChildren: 0.07, // Jeda 70ms antar item
-          delayChildren: 0.1,    // Penundaan awal 100ms
-        },
-      },
-    };
-
-    const isSearching = searchQuery.trim() !== '';
-    const isCardSearch = isSearching && searchScope === 'card';
-    const effectiveOnItemClick = isSearching && !isCardSearch ? handleSearchResultClick : handleDeckItemClick;
-
-    return (
-      <>
-        {selectedDeckId === null ? (
-          <>
-            <Header 
-              isSearchVisible={isSearchVisible}
-              searchQuery={searchQuery}
-              onSearchChange={(e) => setSearchQuery(e.target.value)}
-              onToggleSearch={handleToggleSearch}
-              onOpenSortFilter={() => setIsSortFilterModalOpen(true)}
-              searchScope={searchScope}
-              onSearchScopeChange={setSearchScope}
-            />
-            <main className="px-4 pb-4 space-y-2">
-              <Breadcrumbs 
-                currentDeckId={currentParentId} 
-                onNavigate={(id) => {
-                  setCurrentParentId(id);
-                  setSelectedDeckId(null);
-                }} 
-              />
-              <StudyDirectionToggle />
-              <motion.div
-                key={currentParentId ?? 'root'}
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-              >
-                {isCardSearch ? (
-                  <CardSearchResultList
-                    results={cardSearchResults}
-                    onItemClick={handleCardSearchResultClick}
-                    loading={loading || !isInitialized}
-                  />
-                ) : (
-                  <DeckList 
-                    decks={decksToDisplay} 
-                    loading={loading || !isInitialized} 
-                    onItemClick={effectiveOnItemClick} 
-                    onShowContextMenu={handleShowContextMenu} 
-                    onPlayClick={handlePlayClick} 
-                    openingDeckId={openingDeckId}
-                    highlightedItemId={highlightedItemId}
-                  />
-                )}
-              </motion.div>
-            </main>
-            <FloatingActionButton 
-              onAdd={handleFabClick} 
-            />
-            <AddDeckModal 
-              isOpen={isModalOpen}
-              onClose={() => setIsModalOpen(false)}
-              onAdd={handleAddDeck}
-            />
-          </>
-        ) : (
-          <CardListView 
-            deckId={selectedDeckId} 
-            onBack={() => {
-                setSelectedDeckId(null);
-                setRefreshKey(k => k + 1); // Segarkan daftar dek saat kembali
-            }} 
-            refreshKey={refreshKey}
-            onEditCard={setCardToEdit}
-            onDeleteCard={handleDeleteCard}
-            cardIdToHighlight={cardIdToHighlight}
-            onHighlightDone={() => setCardIdToHighlight(null)}
-          />
-        )}
-      </>
-    );
-  };
+  const handleImportClick = useCallback(() => {
+      setIsMainMenuOpen(false);
+      fileInputRef.current?.click();
+  }, []);
   
+  const handleCardListBack = useCallback(() => {
+    setSelectedDeckId(null);
+    setRefreshKey(k => k + 1);
+  }, []);
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+
+      reader.onload = (e) => {
+          try {
+              const data = e.target?.result;
+              if (!data) throw new Error("Gagal membaca file.");
+
+              let headers: string[] = [];
+              let rows: string[][] = [];
+
+              if (fileExtension === 'csv') {
+                  const result = Papa.parse<string[]>(data as string, { header: false, skipEmptyLines: true });
+                  if (result.data.length > 0) {
+                      headers = result.data[0];
+                      rows = result.data.slice(1);
+                  }
+              } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+                  const workbook = XLSX.read(data, { type: 'binary' });
+                  const sheetName = workbook.SheetNames[0];
+                  const worksheet = workbook.Sheets[sheetName];
+                  const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+                  if (json.length > 0) {
+                      headers = json[0];
+                      rows = json.slice(1);
+                  }
+              } else {
+                  alert("Tipe file tidak didukung. Silakan pilih file CSV atau Excel.");
+                  return;
+              }
+
+              const nonEmptyRows = rows.filter(row => row.some(cell => cell && String(cell).trim() !== ''));
+
+              if (headers.length > 0 && nonEmptyRows.length > 0) {
+                  setImportModalData({ headers, rows: nonEmptyRows, fileName: fileNameWithoutExt });
+              } else {
+                  alert("File yang dipilih kosong atau tidak memiliki header.");
+              }
+          } catch (error) {
+              console.error("Kesalahan saat mem-parsing file:", error);
+              alert("Terjadi kesalahan saat mem-parsing file.");
+          }
+      };
+
+      if (fileExtension === 'csv') {
+          reader.readAsText(file);
+      } else {
+          reader.readAsBinaryString(file);
+      }
+
+      event.target.value = ''; // Reset input file
+  };
+
+  const handleConfirmImport = async (deckTitle: string, frontHeader: string, backHeader: string) => {
+    if (!importModalData) return;
+
+    try {
+        const { headers, rows } = importModalData;
+        const frontIndex = headers.indexOf(frontHeader);
+        const backIndex = headers.indexOf(backHeader);
+
+        if (frontIndex === -1 || backIndex === -1) {
+            alert("Pemetaan kolom tidak valid. Silakan pilih kolom yang berbeda untuk depan dan belakang.");
+            return;
+        }
+        
+        // Buat dek baru
+        const newDeckId = await db.decks.add({
+            title: deckTitle,
+            parentId: currentParentId,
+            type: 'deck',
+            cardCount: 0, // Akan dihitung ulang
+            progress: 0,
+            dueCount: 0,
+        } as Deck);
+
+        // Ubah setiap baris menjadi objek kartu
+        const newCards = rows.map(row => {
+            const front = String(row[frontIndex] || '').trim();
+            const back = String(row[backIndex] || '').trim();
+            
+            // Hanya buat kartu jika kedua sisi depan dan belakang memiliki konten
+            if (front && back) {
+                return {
+                    deckId: newDeckId,
+                    front,
+                    back,
+                    // Tetapkan nilai default untuk bidang SRS
+                    dueDate: new Date(),
+                    interval: 0,
+                    easeFactor: 2.5,
+                    repetitions: 0,
+                } as Card;
+            }
+            return null;
+        }).filter((card): card is Card => card !== null); // Hapus baris kosong
+
+        // Simpan semua kartu baru ke database
+        if (newCards.length > 0) {
+            await db.cards.bulkAdd(newCards);
+        }
+
+        // Perbarui statistik dan segarkan UI
+        await recalculateAllDeckStats();
+
+        // Beri tahu pengguna tentang keberhasilan
+        alert(`${newCards.length} kartu baru berhasil diimpor ke dek '${deckTitle}'!`);
+
+    } catch (error) {
+        console.error("Gagal menyelesaikan impor:", error);
+        alert("Terjadi kesalahan saat mengimpor dek. Silakan coba lagi.");
+    } finally {
+        // Tutup modal dan segarkan daftar dek
+        setImportModalData(null);
+        setRefreshKey(k => k + 1);
+    }
+  };
+
+  const isHeaderVisible = !cardToEdit && !gameType && !quizDeck;
+
   const renderPage = () => {
     if (cardToEdit) {
       return (
@@ -492,7 +567,87 @@ function App() {
     if (quizDeck) {
         return <Quiz />;
     }
-    return <MainScreen />;
+    
+    // Tampilan Utama: Daftar Dek atau Daftar Kartu
+    if (selectedDeckId === null) {
+        // Tampilan Daftar Dek
+        const containerVariants = {
+          hidden: { opacity: 0 },
+          visible: {
+            opacity: 1,
+            transition: {
+              staggerChildren: 0.07,
+              delayChildren: 0.1,
+            },
+          },
+        };
+        const isSearching = searchQuery.trim() !== '';
+        const isCardSearch = isSearching && searchScope === 'card';
+        const effectiveOnItemClick = isSearching && !isCardSearch ? handleSearchResultClick : handleDeckItemClick;
+        return (
+            <>
+                <main className="px-4 pb-4 space-y-2 transition-all duration-300 ease-in-out">
+                    <Breadcrumbs 
+                        currentDeckId={currentParentId} 
+                        onNavigate={(id) => {
+                        setCurrentParentId(id);
+                        setSelectedDeckId(null);
+                        }} 
+                    />
+                    <StudyDirectionToggle />
+                    <motion.div
+                        key={currentParentId ?? 'root'}
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                    >
+                        {isCardSearch ? (
+                        <CardSearchResultList
+                            results={cardSearchResults}
+                            onItemClick={handleCardSearchResultClick}
+                            loading={loading || !isInitialized}
+                        />
+                        ) : (
+                        <DeckList 
+                            decks={decksToDisplay} 
+                            loading={loading || !isInitialized} 
+                            onItemClick={effectiveOnItemClick} 
+                            onShowContextMenu={handleShowContextMenu} 
+                            onPlayClick={handlePlayClick} 
+                            openingDeckId={openingDeckId}
+                            highlightedItemId={highlightedItemId}
+                        />
+                        )}
+                    </motion.div>
+                </main>
+                <FloatingActionButton 
+                onAdd={handleFabClick} 
+                />
+                <AnimatePresence mode="wait">
+                    {isModalOpen && (
+                        <AddDeckModal
+                        key="add-deck-modal"
+                        onClose={() => setIsModalOpen(false)}
+                        onAdd={handleAddDeck}
+                        />
+                    )}
+                </AnimatePresence>
+            </>
+        );
+    } else {
+        // Tampilan Daftar Kartu
+        return (
+            <CardListView 
+                deckId={selectedDeckId} 
+                onBack={handleCardListBack}
+                refreshKey={refreshKey}
+                onEditCard={setCardToEdit}
+                onDeleteCard={handleDeleteCard}
+                cardIdToHighlight={cardIdToHighlight}
+                onHighlightDone={() => setCardIdToHighlight(null)}
+            />
+        );
+    }
   };
 
   return (
@@ -519,79 +674,91 @@ function App() {
         .animate-fade-in-slow {
           animation: fade-in-slow 0.5s ease-out forwards;
         }
-
-        @keyframes fade-in-backdrop {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        .animate-fade-in-backdrop {
-          animation: fade-in-backdrop 0.3s ease-out forwards;
-        }
-
-        @keyframes fade-in-content {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        .animate-fade-in-content {
-          animation: fade-in-content 0.3s ease-out forwards;
-        }
       `}</style>
+      
+      {isHeaderVisible && (
+        <Header 
+            isSearchVisible={isSearchVisible}
+            searchQuery={searchQuery}
+            onSearchChange={handleSearchChange}
+            onToggleSearch={handleToggleSearch}
+            onOpenSortFilter={handleOpenSortFilter}
+            searchScope={searchScope}
+            onSearchScopeChange={setSearchScope}
+            onMenuClick={handleMenuClick}
+            deckId={selectedDeckId}
+            deckTitle={currentDeckForHeader?.title}
+            onBack={handleCardListBack}
+        />
+      )}
       
       {renderPage()}
 
-      {contextMenuState.isVisible && contextMenuState.deckId !== null && (
-        <ContextMenu
-          x={contextMenuState.x}
-          y={contextMenuState.y}
-          deckId={contextMenuState.deckId}
-          onClose={handleCloseContextMenu}
-          onRename={handleRenameDeck}
-          onCopy={handleCopyDeck}
-          onMove={handleMoveDeck}
-          onDelete={handleDeleteDeck}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {contextMenuState.isVisible && contextMenuState.deckId !== null && (
+          <ContextMenu
+            key="context-menu"
+            x={contextMenuState.x}
+            y={contextMenuState.y}
+            deckId={contextMenuState.deckId}
+            onClose={handleCloseContextMenu}
+            onRename={handleRenameDeck}
+            onCopy={handleCopyDeck}
+            onMove={handleMoveDeck}
+            onDelete={handleDeleteDeck}
+          />
+        )}
+      </AnimatePresence>
       
-      {deleteConfirmation && (
-        <ConfirmDeleteModal
-          isOpen={!!deleteConfirmation}
-          deckTitle={deleteConfirmation.title}
-          onClose={() => setDeleteConfirmation(null)}
-          onConfirm={handleConfirmDelete}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {deleteConfirmation && (
+          <ConfirmDeleteModal
+            key="delete-modal"
+            deckTitle={deleteConfirmation.title}
+            onClose={() => setDeleteConfirmation(null)}
+            onConfirm={handleConfirmDelete}
+          />
+        )}
+      </AnimatePresence>
 
-      {moveDeckTarget !== null && (
-        <MoveDeckModal
-          isOpen={moveDeckTarget !== null}
-          deckToMoveId={moveDeckTarget}
-          onClose={() => setMoveDeckTarget(null)}
-          onMove={handleConfirmMove}
-          getPossibleParents={getPossibleParentDecks}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {moveDeckTarget !== null && (
+          <MoveDeckModal
+            key="move-modal"
+            deckToMoveId={moveDeckTarget}
+            onClose={() => setMoveDeckTarget(null)}
+            onMove={handleConfirmMove}
+            getPossibleParents={getPossibleParentDecks}
+          />
+        )}
+      </AnimatePresence>
       
-      {editDeckTarget && (
-        <EditDeckModal
-          isOpen={!!editDeckTarget}
-          deckToEdit={editDeckTarget}
-          onClose={() => setEditDeckTarget(null)}
-          onSave={handleConfirmRename}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {editDeckTarget && (
+          <EditDeckModal
+            key="edit-modal"
+            deckToEdit={editDeckTarget}
+            onClose={() => setEditDeckTarget(null)}
+            onSave={handleConfirmRename}
+          />
+        )}
+      </AnimatePresence>
 
-      {deleteCardTarget && (
-        <ConfirmDeleteCardModal
-          isOpen={!!deleteCardTarget}
-          cardFront={deleteCardTarget.front}
-          onClose={() => setDeleteCardTarget(null)}
-          onConfirm={handleConfirmDeleteCard}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {deleteCardTarget && (
+          <ConfirmDeleteCardModal
+            key="delete-card-modal"
+            cardFront={deleteCardTarget.front}
+            onClose={() => setDeleteCardTarget(null)}
+            onConfirm={handleConfirmDeleteCard}
+          />
+        )}
+      </AnimatePresence>
       
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {isQuizModeSelectorOpen && deckIdToQuiz && (
           <QuizModeSelector
+            key="quiz-mode-selector"
             deckId={deckIdToQuiz}
             onClose={() => {
                 setIsQuizModeSelectorOpen(false);
@@ -602,11 +769,43 @@ function App() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {isSortFilterModalOpen && (
           <SortFilterModal
+            key="sort-filter-modal"
             isOpen={isSortFilterModalOpen}
             onClose={() => setIsSortFilterModalOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+        className="hidden"
+        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+      />
+      
+      <AnimatePresence mode="wait">
+        {isMainMenuOpen && (
+          <MainMenu
+            key="main-menu"
+            isOpen={isMainMenuOpen}
+            onClose={() => setIsMainMenuOpen(false)}
+            onImport={handleImportClick}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence mode="wait">
+        {importModalData && (
+          <ImportDeckModal
+            key="import-deck-modal"
+            isOpen={!!importModalData}
+            onClose={() => setImportModalData(null)}
+            data={importModalData}
+            onConfirmImport={handleConfirmImport}
           />
         )}
       </AnimatePresence>

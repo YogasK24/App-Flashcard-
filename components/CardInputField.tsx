@@ -29,7 +29,7 @@ const CardInputField: React.FC<CardInputFieldProps> = ({
 
   const baseInputClasses = "w-full text-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3] transition-colors duration-300";
   const defaultBgClasses = "bg-gray-200 dark:bg-gray-700";
-  const highlightedBgClasses = "bg-blue-100 dark:bg-blue-900/60";
+  const highlightedBgClasses = "bg-yellow-400/50 dark:bg-yellow-800/50";
   const paddingClass = endAdornment ? 'pr-10' : '';
   const inputClasses = `${baseInputClasses} ${isHighlighted ? highlightedBgClasses : defaultBgClasses} ${paddingClass}`;
 

@@ -97,7 +97,7 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
         <button
             onClick={handlePlay}
             disabled={deck.cardCount === 0 || isLoading}
-            className="p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black/5 dark:hover:bg-white/10 transition-transform duration-200 ease-in-out hover:scale-105 active:scale-95"
+            className="p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black/5 dark:hover:bg-white/10 transition-all duration-200 ease-in-out hover:scale-105 active:scale-95"
             aria-label={`Mulai kuis untuk ${deck.title}`}
         >
             {isLoading ? (
@@ -111,4 +111,4 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
   );
 };
 
-export default DeckItem;
+export default React.memo(DeckItem);

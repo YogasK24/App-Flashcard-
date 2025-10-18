@@ -160,13 +160,13 @@ const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ deckId, onClose }) 
     return (
       <div>
         <div className="flex items-center justify-between mb-2 px-2 relative">
-          <button onClick={() => setMenuLevel('main')} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10" aria-label="Kembali">
+          <button onClick={() => setMenuLevel('main')} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors duration-200" aria-label="Kembali">
             <Icon name="chevronLeft" className="w-6 h-6" />
           </button>
           <h2 id="quiz-mode-title" className="absolute left-1/2 -translate-x-1/2 text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">
             {title}
           </h2>
-          <button onClick={toggleViewMode} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10" aria-label={toggleAriaLabel}>
+          <button onClick={toggleViewMode} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors duration-200" aria-label={toggleAriaLabel}>
             <Icon name={toggleIcon} className="w-6 h-6" />
           </button>
         </div>

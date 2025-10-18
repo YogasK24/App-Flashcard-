@@ -44,4 +44,4 @@ const StudyDirectionToggle: React.FC = () => {
   );
 };
 
-export default StudyDirectionToggle;
+export default React.memo(StudyDirectionToggle);

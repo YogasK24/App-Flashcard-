@@ -53,6 +53,7 @@ const SortFilterModal: React.FC<SortFilterModalProps> = ({ isOpen, onClose }) =>
         <AnimatePresence>
             {isOpen && (
                 <motion.div
+                  key="sort-filter-backdrop"
                   onClick={handleBackdropClick}
                   className="fixed inset-0 bg-black/60 flex items-end justify-center z-50"
                   aria-modal="true"

@@ -32,6 +32,7 @@ const TimerSettingsModal: React.FC<TimerSettingsModalProps> = ({ isOpen, onClose
     <AnimatePresence>
       {isOpen && (
         <motion.div
+          key="timer-settings-backdrop"
           onClick={handleBackdropClick}
           className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
           variants={backdropVariants}

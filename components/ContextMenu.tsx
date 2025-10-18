@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, Variants } from 'framer-motion';
 
 interface ContextMenuProps {
   x: number;
@@ -10,6 +11,11 @@ interface ContextMenuProps {
   onMove: (deckId: number) => void;
   onDelete: (deckId: number) => void;
 }
+
+const menuVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.95, transition: { duration: 0.1 } },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.1 } },
+};
 
 const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, deckId, onClose, onRename, onCopy, onMove, onDelete }) => {
   const menuStyle = {
@@ -30,19 +36,14 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, deckId, onClose, onRena
         onClick={onClose}
         onContextMenu={(e) => { e.preventDefault(); onClose(); }} // Juga tutup saat klik kanan di luar
       />
-      <div
+      <motion.div
         style={menuStyle}
-        className="fixed bg-white dark:bg-[#2B2930] text-gray-900 dark:text-[#E6E1E5] rounded-lg shadow-xl py-2 w-48 z-50 animate-fade-in"
+        className="fixed bg-white dark:bg-[#2B2930] text-gray-900 dark:text-[#E6E1E5] rounded-lg shadow-xl py-2 w-48 z-50 origin-top-left"
+        variants={menuVariants}
+        initial="hidden"
+        animate="visible"
+        exit="hidden"
       >
-        <style>{`
-          @keyframes fade-in {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
-          }
-          .animate-fade-in {
-            animation: fade-in 0.1s ease-out forwards;
-          }
-        `}</style>
         <ul>
           <li>
             <button
@@ -77,7 +78,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, deckId, onClose, onRena
             </button>
           </li>
         </ul>
-      </div>
+      </motion.div>
     </>
   );
 };

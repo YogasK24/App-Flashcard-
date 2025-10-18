@@ -42,7 +42,7 @@ const EditCardPage: React.FC<EditCardPageProps> = ({ card, onBack, onSave }) => 
     <div className="flex flex-col h-full animate-fade-in-slow">
         <header className="p-4 flex items-center justify-between">
             <div className="flex items-center space-x-4">
-                <button onClick={onBack} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10" aria-label="Kembali">
+                <button onClick={onBack} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors duration-200" aria-label="Kembali">
                     <Icon name="chevronLeft" className="w-6 h-6" />
                 </button>
                 <h2 className="text-xl font-semibold">Ubah Kartu</h2>

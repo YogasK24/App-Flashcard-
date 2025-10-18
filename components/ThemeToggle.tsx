@@ -19,9 +19,12 @@ const ThemeToggle: React.FC = () => {
 
   return (
     <button
-      onClick={toggleTheme}
+      onClick={(e) => {
+        e.stopPropagation();
+        toggleTheme();
+      }}
       aria-label="Ganti tema"
-      className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 relative w-10 h-10 flex items-center justify-center overflow-hidden"
+      className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 relative w-10 h-10 flex items-center justify-center overflow-hidden transition-colors duration-200"
     >
       <AnimatePresence initial={false} mode="wait">
         {theme === 'dark' ? (

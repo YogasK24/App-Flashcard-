@@ -41,7 +41,7 @@ interface AddEditCardFormProps {
 
 const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationChange, initialData, isEditMode = false }) => {
   const [cards, setCards] = useState<FormCardData[]>(initialData || [createNewCard()]);
-  const [aiGeneratedIndex, setAiGeneratedIndex] = useState<number | null>(null);
+  const [aiHighlight, setAiHighlight] = useState<{ cardKey: number; field: 'back' | 'transcription' | 'example' } | null>(null);
   const [individualLoading, setIndividualLoading] = useState<{ [key: string]: boolean }>({});
 
   const isFormValid = !cards.some(card => !card.front.trim() || !card.back.trim());
@@ -49,6 +49,14 @@ const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationC
   useEffect(() => {
     onValidationChange(isFormValid);
   }, [isFormValid, onValidationChange]);
+
+  useEffect(() => {
+    if (aiHighlight) {
+        // Sorot field selama 1.5 detik agar terlihat jelas oleh pengguna
+        const timer = setTimeout(() => setAiHighlight(null), 1500);
+        return () => clearTimeout(timer);
+    }
+  }, [aiHighlight]);
 
   const handleCardChange = (index: number, field: keyof Omit<FormCardData, 'key' | 'showTranscription' | 'showExample' | 'showImage'>, value: string | File | null) => {
     const newCards = [...cards];
@@ -118,6 +126,14 @@ const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationC
                 newCards[index] = targetCard;
                 return newCards;
             });
+            
+            if (action === 'furigana') {
+                setAiHighlight({ cardKey: cardKey, field: 'back' });
+            } else if (action === 'translation') {
+                setAiHighlight({ cardKey: cardKey, field: 'transcription' });
+            } else if (action === 'example') {
+                setAiHighlight({ cardKey: cardKey, field: 'example' });
+            }
         }
     } catch (error) {
         console.error(`Error generating ${action}:`, error);
@@ -130,101 +146,106 @@ const AddEditCardForm: React.FC<AddEditCardFormProps> = ({ onSave, onValidationC
   return (
     <form onSubmit={handleSubmit} id="add-edit-card-form" className="flex-grow flex flex-col min-h-0">
         <div className="space-y-4 max-h-[60vh] overflow-y-auto p-1 -mr-3 pr-3 flex-grow">
-            {cards.map((card, index) => (
-                <div key={card.key} className="bg-gray-100 dark:bg-[#4A4458]/40 p-4 rounded-lg relative border border-transparent dark:border-gray-700/50">
-                    {!isEditMode && cards.length > 1 && (
-                        <button type="button" onClick={() => removeCard(index)} className="absolute top-2 right-2 p-1 rounded-full text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/10" aria-label="Hapus kartu ini">
-                            <Icon name="trash" className="w-4 h-4 text-red-500/80"/>
-                        </button>
-                    )}
-                    
-                    <CardInputField
-                        label="日本語(漢字)"
-                        value={card.front}
-                        onChange={(e) => handleCardChange(index, 'front', e.target.value)}
-                        placeholder="e.g., 日本"
-                        iconName="sparkle"
-                        isHighlighted={aiGeneratedIndex === index}
-                    />
-
-                    <div className="mb-4">
-                        <label htmlFor={`card-back-${card.key}`} className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-2">
-                            日本語(片仮名)
-                        </label>
-                        <div className="relative flex items-center">
-                            <input
-                                id={`card-back-${card.key}`}
-                                type="text"
-                                value={card.back}
-                                onChange={(e) => handleCardChange(index, 'back', e.target.value)}
-                                placeholder="e.g., にほん"
-                                className="w-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3] pr-10"
-                            />
-                            <div className="absolute right-3">
-                                <AISparkleButton
-                                    isLoading={!!individualLoading[`${card.key}-furigana`]}
-                                    onClick={() => handleGenerateField(index, card.key, 'furigana')}
-                                    disabled={!card.front.trim()}
-                                    title="Hasilkan Furigana"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {card.showTranscription && (
+            {cards.map((card, index) => {
+                const isBackHighlighted = aiHighlight?.cardKey === card.key && aiHighlight?.field === 'back';
+                const isExampleHighlighted = aiHighlight?.cardKey === card.key && aiHighlight?.field === 'example';
+                
+                return (
+                    <div key={card.key} className="bg-gray-100 dark:bg-[#4A4458]/40 p-4 rounded-lg relative border border-transparent dark:border-gray-700/50">
+                        {!isEditMode && cards.length > 1 && (
+                            <button type="button" onClick={() => removeCard(index)} className="absolute top-2 right-2 p-1 rounded-full text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/10 transition-colors duration-200" aria-label="Hapus kartu ini">
+                                <Icon name="trash" className="w-4 h-4 text-red-500/80"/>
+                            </button>
+                        )}
+                        
                         <CardInputField
-                            label="Transcription"
-                            value={card.transcription}
-                            onChange={(e) => handleCardChange(index, 'transcription', e.target.value)}
-                            placeholder="e.g., Nihon"
-                            endAdornment={
-                                <AISparkleButton
-                                    isLoading={!!individualLoading[`${card.key}-translation`]}
-                                    onClick={() => handleGenerateField(index, card.key, 'translation')}
-                                    disabled={!card.front.trim()}
-                                    title="Hasilkan Terjemahan"
-                                />
-                            }
+                            label="日本語(漢字)"
+                            value={card.front}
+                            onChange={(e) => handleCardChange(index, 'front', e.target.value)}
+                            placeholder="e.g., 日本"
+                            iconName="sparkle"
                         />
-                    )}
-                    
-                    {card.showExample && (
-                         <div className="relative flex flex-col mb-4">
-                            <label htmlFor={`card-example-${card.key}`} className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-2">Contoh</label>
-                            <div className="relative">
-                                <textarea
-                                    id={`card-example-${card.key}`}
-                                    value={card.example}
-                                    onChange={(e) => handleCardChange(index, 'example', e.target.value)}
-                                    placeholder="e.g., 日本は美しい国です。"
-                                    className="w-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3] h-20 resize-none"
+
+                        <div className="mb-4">
+                            <label htmlFor={`card-back-${card.key}`} className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-2">
+                                日本語(片仮名)
+                            </label>
+                            <div className="relative flex items-center">
+                                <input
+                                    id={`card-back-${card.key}`}
+                                    type="text"
+                                    value={card.back}
+                                    onChange={(e) => handleCardChange(index, 'back', e.target.value)}
+                                    placeholder="e.g., にほん"
+                                    className={`w-full text-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3] pr-10 transition-colors duration-300 ${isBackHighlighted ? 'bg-yellow-400/50 dark:bg-yellow-800/50' : 'bg-gray-200 dark:bg-gray-700'}`}
                                 />
-                                <div className="absolute top-2 right-2 z-10">
+                                <div className="absolute right-3">
                                     <AISparkleButton
-                                        isLoading={!!individualLoading[`${card.key}-example`]}
-                                        onClick={() => handleGenerateField(index, card.key, 'example')}
+                                        isLoading={!!individualLoading[`${card.key}-furigana`]}
+                                        onClick={() => handleGenerateField(index, card.key, 'furigana')}
                                         disabled={!card.front.trim()}
-                                        title="Hasilkan Contoh Kalimat"
+                                        title="Hasilkan Furigana"
                                     />
                                 </div>
                             </div>
                         </div>
-                    )}
-                    
-                    {card.showImage && (
-                        <div className="relative flex flex-col mb-4">
-                            <label htmlFor={`card-image-${card.key}`} className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-2">Gambar</label>
-                            <input id={`card-image-${card.key}`} type="file" accept="image/*" onChange={(e) => handleCardChange(index, 'image', e.target.files ? e.target.files[0] : null)} className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
-                        </div>
-                    )}
+                        
+                        {card.showTranscription && (
+                            <CardInputField
+                                label="Transcription"
+                                value={card.transcription}
+                                onChange={(e) => handleCardChange(index, 'transcription', e.target.value)}
+                                placeholder="e.g., Nihon"
+                                isHighlighted={aiHighlight?.cardKey === card.key && aiHighlight?.field === 'transcription'}
+                                endAdornment={
+                                    <AISparkleButton
+                                        isLoading={!!individualLoading[`${card.key}-translation`]}
+                                        onClick={() => handleGenerateField(index, card.key, 'translation')}
+                                        disabled={!card.front.trim()}
+                                        title="Hasilkan Terjemahan"
+                                    />
+                                }
+                            />
+                        )}
+                        
+                        {card.showExample && (
+                             <div className="relative flex flex-col mb-4">
+                                <label htmlFor={`card-example-${card.key}`} className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-2">Contoh</label>
+                                <div className="relative">
+                                    <textarea
+                                        id={`card-example-${card.key}`}
+                                        value={card.example}
+                                        onChange={(e) => handleCardChange(index, 'example', e.target.value)}
+                                        placeholder="e.g., 日本は美しい国です。"
+                                        className={`w-full text-gray-900 dark:text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[#C8B4F3] h-20 resize-none transition-colors duration-300 ${isExampleHighlighted ? 'bg-yellow-400/50 dark:bg-yellow-800/50' : 'bg-gray-200 dark:bg-gray-700'}`}
+                                    />
+                                    <div className="absolute top-2 right-2 z-10">
+                                        <AISparkleButton
+                                            isLoading={!!individualLoading[`${card.key}-example`]}
+                                            onClick={() => handleGenerateField(index, card.key, 'example')}
+                                            disabled={!card.front.trim()}
+                                            title="Hasilkan Contoh Kalimat"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {card.showImage && (
+                            <div className="relative flex flex-col mb-4">
+                                <label htmlFor={`card-image-${card.key}`} className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-2">Gambar</label>
+                                <input id={`card-image-${card.key}`} type="file" accept="image/*" onChange={(e) => handleCardChange(index, 'image', e.target.files ? e.target.files[0] : null)} className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
+                            </div>
+                        )}
 
-                    <div className="flex items-center space-x-2 mt-2">
-                        {!card.showTranscription && <button type="button" onClick={() => toggleAttribute(index, 'showTranscription')} className="text-xs bg-gray-200 dark:bg-gray-600/80 text-gray-700 dark:text-gray-200 px-2 py-1 rounded-full hover:opacity-80 transition-opacity">+ Transcription</button>}
-                        {!card.showExample && <button type="button" onClick={() => toggleAttribute(index, 'showExample')} className="text-xs bg-gray-200 dark:bg-gray-600/80 text-gray-700 dark:text-gray-200 px-2 py-1 rounded-full hover:opacity-80 transition-opacity">+ Contoh</button>}
-                        {!card.showImage && <button type="button" onClick={() => toggleAttribute(index, 'showImage')} className="text-xs bg-gray-200 dark:bg-gray-600/80 text-gray-700 dark:text-gray-200 px-2 py-1 rounded-full hover:opacity-80 transition-opacity">+ Gambar</button>}
+                        <div className="flex items-center space-x-2 mt-2">
+                            {!card.showTranscription && <button type="button" onClick={() => toggleAttribute(index, 'showTranscription')} className="text-xs bg-gray-200 dark:bg-gray-600/80 text-gray-700 dark:text-gray-200 px-2 py-1 rounded-full hover:opacity-80 transition-opacity">+ Transcription</button>}
+                            {!card.showExample && <button type="button" onClick={() => toggleAttribute(index, 'showExample')} className="text-xs bg-gray-200 dark:bg-gray-600/80 text-gray-700 dark:text-gray-200 px-2 py-1 rounded-full hover:opacity-80 transition-opacity">+ Contoh</button>}
+                            {!card.showImage && <button type="button" onClick={() => toggleAttribute(index, 'showImage')} className="text-xs bg-gray-200 dark:bg-gray-600/80 text-gray-700 dark:text-gray-200 px-2 py-1 rounded-full hover:opacity-80 transition-opacity">+ Gambar</button>}
+                        </div>
                     </div>
-                </div>
-            ))}
+                );
+            })}
         </div>
         
         {!isEditMode && (

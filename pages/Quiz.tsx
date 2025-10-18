@@ -141,9 +141,9 @@ const Quiz: React.FC = () => {
         onOpenSettings={() => setIsSettingsModalOpen(true)}
       />
       <div className="flex-grow flex items-center justify-center relative">
-        <AnimatePresence initial={false} custom={direction}>
+        <AnimatePresence initial={false} custom={direction} mode="wait">
           <motion.div
-            key={currentCardIndex}
+            key={currentCard.id}
             custom={direction}
             variants={cardVariants}
             initial="enter"

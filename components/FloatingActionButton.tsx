@@ -12,7 +12,10 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onAdd, text
   return (
     <div className="absolute bottom-6 right-4">
       <button
-        onClick={onAdd}
+        onClick={(e) => {
+          e.stopPropagation();
+          onAdd();
+        }}
         className={`
           flex items-center justify-center 
           bg-[#C8B4F3] text-black 
