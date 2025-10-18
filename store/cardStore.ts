@@ -15,8 +15,11 @@ interface CardStoreState {
   duplicateDeck: (deckId: number) => Promise<void>;
   updateDeckParent: (deckId: number, newParentId: number | null) => Promise<void>;
   addCardToDeck: (deckId: number, front: string, back: string) => Promise<void>;
+  updateCard: (cardId: number, front: string, back: string) => Promise<void>;
+  deleteCard: (cardId: number) => Promise<void>;
   getDecksByParentId: (parentId: number | null) => Promise<Deck[]>;
   getDeckById: (deckId: number) => Promise<Deck | undefined>;
+  getCardsByDeckId: (deckId: number) => Promise<Card[]>;
   getDeckPath: (deckId: number | null) => Promise<Deck[]>;
   getPossibleParentDecks: (deckId: number) => Promise<Deck[]>;
 }
@@ -141,6 +144,32 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
     }
   },
 
+  updateCard: async (cardId: number, front: string, back: string) => {
+    try {
+        await db.cards.update(cardId, { front, back });
+    } catch (error) {
+        console.error(`Gagal memperbarui kartu ${cardId}:`, error);
+    }
+  },
+
+  deleteCard: async (cardId: number) => {
+    try {
+        const cardToDelete = await db.cards.get(cardId);
+        if (!cardToDelete) {
+            console.error(`Kartu dengan ID ${cardId} tidak ditemukan.`);
+            return;
+        }
+
+        await db.transaction('rw', db.cards, db.decks, async () => {
+            // Hapus kartu
+            await db.cards.delete(cardId);
+        });
+
+    } catch (error) {
+        console.error(`Gagal menghapus kartu ${cardId}:`, error);
+    }
+  },
+
   startQuiz: async (deckId: number) => {
     try {
       const deck = await db.decks.get(deckId);
@@ -213,6 +242,15 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
     } catch (error) {
         console.error(`Gagal mengambil dek dengan ID ${deckId}:`, error);
         return undefined;
+    }
+  },
+
+  getCardsByDeckId: async (deckId: number): Promise<Card[]> => {
+    try {
+        return await db.cards.where({ deckId }).toArray();
+    } catch (error) {
+        console.error(`Gagal mengambil kartu untuk dek ${deckId}:`, error);
+        return [];
     }
   },
 

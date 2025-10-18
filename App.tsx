@@ -6,13 +6,17 @@ import FloatingActionButton from './components/FloatingActionButton';
 import { useCardStore } from './store/cardStore';
 import Quiz from './pages/Quiz';
 import Breadcrumbs from './components/Breadcrumbs';
-import { Deck } from './types';
+import { Deck, Card } from './types';
 import AddDeckModal from './components/AddDeckModal';
 import ContextMenu from './components/ContextMenu';
 import ConfirmDeleteModal from './components/ConfirmDeleteModal';
 import MoveDeckModal from './components/MoveDeckModal';
 import EditDeckModal from './components/EditDeckModal';
 import AddCardModal from './components/AddCardModal';
+import CardListView from './components/CardListView';
+import EditCardModal from './components/EditCardModal';
+import ConfirmDeleteCardModal from './components/ConfirmDeleteCardModal';
+
 
 function App() {
   const { 
@@ -26,6 +30,8 @@ function App() {
     duplicateDeck,
     getDeckById,
     addCardToDeck,
+    updateCard,
+    deleteCard,
   } = useCardStore(state => ({
     quizDeck: state.quizDeck,
     getDecksByParentId: state.getDecksByParentId,
@@ -37,12 +43,17 @@ function App() {
     duplicateDeck: state.duplicateDeck,
     getDeckById: state.getDeckById,
     addCardToDeck: state.addCardToDeck,
+    updateCard: state.updateCard,
+    deleteCard: state.deleteCard,
   }));
 
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentParentId, setCurrentParentId] = useState<number | null>(null);
   const [currentParentDeck, setCurrentParentDeck] = useState<Deck | null>(null);
+  const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
   const [contextMenuState, setContextMenuState] = useState({
@@ -54,6 +65,8 @@ function App() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ deckId: number; title: string } | null>(null);
   const [moveDeckTarget, setMoveDeckTarget] = useState<number | null>(null);
   const [editDeckTarget, setEditDeckTarget] = useState<Deck | null>(null);
+  const [editCardTarget, setEditCardTarget] = useState<Card | null>(null);
+  const [deleteCardTarget, setDeleteCardTarget] = useState<Card | null>(null);
 
 
   const fetchAndSetDecks = useCallback(async () => {
@@ -73,8 +86,13 @@ function App() {
     fetchAndSetDecks();
   }, [fetchAndSetDecks]);
 
-  const handleNavigateTo = (deck: Deck) => {
-    setCurrentParentId(deck.id);
+  const handleDeckItemClick = (deck: Deck) => {
+    if (deck.type === 'folder') {
+      setCurrentParentId(deck.id);
+      setSelectedDeckId(null);
+    } else {
+      setSelectedDeckId(deck.id);
+    }
   };
   
   const handleAddDeck = async (title: string, type: 'deck' | 'folder') => {
@@ -84,18 +102,19 @@ function App() {
   };
 
   const handleAddCard = async (front: string, back: string) => {
-    if (currentParentId) {
-        await addCardToDeck(currentParentId, front, back);
+    if (selectedDeckId) {
+        await addCardToDeck(selectedDeckId, front, back);
         setIsAddCardModalOpen(false);
+        setRefreshKey(k => k + 1);
         await fetchAndSetDecks(); // Muat ulang untuk memperbarui jumlah kartu
     }
   };
   
   const handleFabClick = () => {
-    if (currentParentDeck?.type === 'deck') {
+    if (selectedDeckId !== null) {
       setIsAddCardModalOpen(true);
     } else {
-      setIsModalOpen(true); // Untuk folder dan root
+      setIsModalOpen(true);
     }
   };
 
@@ -169,33 +188,73 @@ function App() {
     setMoveDeckTarget(null);
     await fetchAndSetDecks();
   };
+  
+  const handleEditCard = (card: Card) => {
+    setEditCardTarget(card);
+  };
+
+  const handleDeleteCard = (card: Card) => {
+    setDeleteCardTarget(card);
+  };
+
+  const handleConfirmEditCard = async (cardId: number, front: string, back: string) => {
+    await updateCard(cardId, front, back);
+    setEditCardTarget(null);
+    setRefreshKey(k => k + 1);
+  };
+
+  const handleConfirmDeleteCard = async () => {
+    if (deleteCardTarget?.id) {
+      await deleteCard(deleteCardTarget.id);
+      setDeleteCardTarget(null);
+      setRefreshKey(k => k + 1);
+      await fetchAndSetDecks(); // Muat ulang untuk memperbarui jumlah kartu
+    }
+  };
 
   const MainScreen = () => (
     <>
-      <Header />
-      <main className="p-4 space-y-4">
-        <Breadcrumbs currentDeckId={currentParentId} onNavigate={setCurrentParentId} />
-        <FilterBar />
-        <div key={currentParentId ?? 'root'} className="animate-fade-in-slow">
-            <DeckList decks={decks} loading={loading} onNavigate={handleNavigateTo} onShowContextMenu={handleShowContextMenu} />
-        </div>
-      </main>
+       {selectedDeckId === null ? (
+        <>
+          <Header />
+          <main className="p-4 space-y-4">
+            <Breadcrumbs 
+              currentDeckId={currentParentId} 
+              onNavigate={(id) => {
+                setCurrentParentId(id);
+                setSelectedDeckId(null);
+              }} 
+            />
+            <FilterBar />
+            <div key={currentParentId ?? 'root'} className="animate-fade-in-slow">
+              <DeckList decks={decks} loading={loading} onItemClick={handleDeckItemClick} onShowContextMenu={handleShowContextMenu} />
+            </div>
+          </main>
+        </>
+      ) : (
+        <CardListView 
+          deckId={selectedDeckId} 
+          onBack={() => setSelectedDeckId(null)} 
+          refreshKey={refreshKey}
+          onEditCard={handleEditCard}
+          onDeleteCard={handleDeleteCard}
+        />
+      )}
+
       <FloatingActionButton 
         onAdd={handleFabClick} 
-        text={currentParentDeck?.type === 'deck' ? 'Tambah Kartu' : undefined}
+        text={selectedDeckId !== null ? 'Tambah Kartu' : undefined}
       />
       <AddDeckModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAdd={handleAddDeck}
       />
-      {currentParentId && isAddCardModalOpen && (
-        <AddCardModal
-          isOpen={isAddCardModalOpen}
-          onClose={() => setIsAddCardModalOpen(false)}
-          onAddCard={handleAddCard}
-        />
-      )}
+      <AddCardModal
+        isOpen={isAddCardModalOpen}
+        onClose={() => setIsAddCardModalOpen(false)}
+        onAddCard={handleAddCard}
+      />
     </>
   );
 
@@ -273,6 +332,24 @@ function App() {
           deckToEdit={editDeckTarget}
           onClose={() => setEditDeckTarget(null)}
           onSave={handleConfirmRename}
+        />
+      )}
+
+      {editCardTarget && (
+        <EditCardModal
+          isOpen={!!editCardTarget}
+          cardToEdit={editCardTarget}
+          onClose={() => setEditCardTarget(null)}
+          onSave={handleConfirmEditCard}
+        />
+      )}
+
+      {deleteCardTarget && (
+        <ConfirmDeleteCardModal
+          isOpen={!!deleteCardTarget}
+          cardFront={deleteCardTarget.front}
+          onClose={() => setDeleteCardTarget(null)}
+          onConfirm={handleConfirmDeleteCard}
         />
       )}
     </div>

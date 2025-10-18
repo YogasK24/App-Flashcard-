@@ -7,29 +7,33 @@ interface FloatingActionButtonProps {
 }
 
 const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onAdd, text }) => {
-  if (text) {
-    return (
-      <div className="absolute bottom-6 right-4">
-        <button
-          onClick={onAdd}
-          className="h-14 px-6 bg-[#C8B4F3] rounded-2xl flex items-center justify-center text-black shadow-lg hover:bg-[#D8C4F8] transition-all duration-200 ease-in-out hover:scale-105 active:scale-95"
-          aria-label={text}
-        >
-          <Icon name="plus" className="w-6 h-6 mr-2" />
-          <span className="font-semibold">{text}</span>
-        </button>
-      </div>
-    );
-  }
+  const hasText = !!text;
 
   return (
     <div className="absolute bottom-6 right-4">
       <button
         onClick={onAdd}
-        className="w-16 h-16 bg-[#C8B4F3] rounded-2xl flex items-center justify-center text-black shadow-lg hover:bg-[#D8C4F8] transition-all duration-200 ease-in-out hover:scale-105 active:scale-95"
-        aria-label="Tambah item baru"
+        className={`
+          flex items-center justify-center 
+          bg-[#C8B4F3] text-black 
+          rounded-2xl shadow-lg 
+          transition-all duration-300 ease-in-out 
+          hover:bg-[#D8C4F8] hover:scale-105 active:scale-95
+          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#1C1B1F] focus:ring-[#C8B4F3]
+          ${hasText ? 'h-14 pl-4 pr-6' : 'w-16 h-16'}
+        `}
+        aria-label={text || "Tambah item baru"}
       >
-        <Icon name="plus" className="w-8 h-8" />
+        <Icon name="plus" className={`transition-transform duration-300 ${hasText ? 'w-6 h-6' : 'w-8 h-8'}`} />
+        <span 
+          className={`
+            font-semibold whitespace-nowrap overflow-hidden
+            transition-all duration-300 ease-in-out
+            ${hasText ? 'ml-2 max-w-[200px] opacity-100' : 'ml-0 max-w-0 opacity-0'}
+          `}
+        >
+          {text}
+        </span>
       </button>
     </div>
   );

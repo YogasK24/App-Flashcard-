@@ -5,11 +5,11 @@ import { useCardStore } from '../store/cardStore';
 
 interface DeckItemProps {
   deck: Deck;
-  onNavigate: (deck: Deck) => void;
+  onItemClick: (deck: Deck) => void;
   onShowContextMenu: (event: React.MouseEvent, deckId: number) => void;
 }
 
-const DeckItem: React.FC<DeckItemProps> = ({ deck, onNavigate, onShowContextMenu }) => {
+const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMenu }) => {
   const { startQuiz } = useCardStore(state => ({
     startQuiz: state.startQuiz,
   }));
@@ -17,16 +17,9 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onNavigate, onShowContextMenu
   const isContainer = deck.type === 'folder';
 
   const handleItemClick = () => {
-    if (isContainer) {
-      onNavigate(deck);
-    } else {
-      // Jika ini adalah dek, mulai kuis jika ada kartu yang jatuh tempo.
-      if (deck.dueCount > 0) {
-        startQuiz(deck.id);
-      } else {
-        alert("Tidak ada kartu yang perlu diulang di dek ini.");
-      }
-    }
+    // Logika klik disederhanakan: komponen induk yang akan memutuskan
+    // apakah akan menavigasi ke folder atau menampilkan daftar kartu.
+    onItemClick(deck);
   };
   
   const handlePlay = (e: React.MouseEvent) => {
