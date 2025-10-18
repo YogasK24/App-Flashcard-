@@ -1,11 +1,23 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useThemeStore } from '../store/themeStore';
 
 interface TimerSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const backdropVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.3 } },
+  exit: { opacity: 0, transition: { duration: 0.3 } },
+};
+
+const modalVariants: Variants = {
+  hidden: { scale: 0.9, opacity: 0 },
+  visible: { scale: 1, opacity: 1, transition: { duration: 0.2, ease: 'easeOut' } },
+  exit: { scale: 0.9, opacity: 0, transition: { duration: 0.2, ease: 'easeOut' } },
+};
 
 const TimerSettingsModal: React.FC<TimerSettingsModalProps> = ({ isOpen, onClose }) => {
   const { timerDuration, setTimerDuration } = useThemeStore();
@@ -22,17 +34,14 @@ const TimerSettingsModal: React.FC<TimerSettingsModalProps> = ({ isOpen, onClose
         <motion.div
           onClick={handleBackdropClick}
           className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
+          variants={backdropVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
         >
           <motion.div
             className="bg-white dark:bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
+            variants={modalVariants}
           >
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Pengaturan Timer Blitz</h2>
             <div className="mb-4">

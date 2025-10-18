@@ -20,6 +20,8 @@ export interface Card {
   dueDate: Date;
   interval: number;
   easeFactor: number;
+  repetitions: number;
+  isMastered?: boolean;
 }
 
 export interface AppSettings {

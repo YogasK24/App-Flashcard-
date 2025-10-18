@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { db } from '../services/databaseService';
 import { Deck, Card } from '../types';
@@ -13,7 +14,7 @@ interface CardStoreState {
   startQuiz: (deckId: number, cardSet?: 'due' | 'new' | 'review_all', quizMode?: 'sr' | 'simple' | 'blitz') => Promise<void>;
   startGame: (deckId: number, gameType: GameType, quizMode: 'sr' | 'simple' | 'blitz') => Promise<void>;
   endQuiz: () => void;
-  updateCardSrs: (card: Card, quality: number) => Promise<void>;
+  updateCardProgress: (card: Card, feedback: 'lupa' | 'ingat') => Promise<void>;
   addDeck: (title: string, type: 'deck' | 'folder', parentId: number | null) => Promise<void>;
   deleteDeck: (deckId: number) => Promise<void>;
   updateDeckTitle: (deckId: number, newTitle: string) => Promise<void>;
@@ -29,6 +30,7 @@ interface CardStoreState {
   getPossibleParentDecks: (deckId: number) => Promise<Deck[]>;
   getDeckStats: (deckId: number) => Promise<{ newCount: number; repeatCount: number; learnedCount: number; totalCount: number; }>;
   recalculateAllDeckStats: () => Promise<void>;
+  getCardCountInHierarchy: (folderId: number) => Promise<number>;
 }
 
 // Fungsi bantuan untuk mengacak array (Fisher-Yates shuffle)
@@ -38,6 +40,63 @@ const shuffleArray = <T>(array: T[]): T[] => {
         [array[i], array[j]] = [array[j], array[i]];
     }
     return array;
+};
+
+const getDescendantDeckIds = async (folderId: number): Promise<number[]> => {
+    const deckIds: number[] = [];
+    const queue: number[] = [folderId];
+    
+    // Ini kurang efisien, tetapi diperlukan tanpa struktur data yang lebih baik di memori.
+    const allDecks = await db.decks.toArray();
+    const childrenMap = allDecks.reduce((acc, deck) => {
+        const parentId = deck.parentId;
+        if (parentId === null) return acc;
+        if (!acc[parentId]) acc[parentId] = [];
+        acc[parentId].push(deck);
+        return acc;
+    }, {} as Record<number, Deck[]>);
+
+    while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        const children = childrenMap[currentId] || [];
+
+        for (const child of children) {
+            if (child.type === 'deck') {
+                deckIds.push(child.id);
+            } else { // ini adalah folder
+                queue.push(child.id);
+            }
+        }
+    }
+    return deckIds;
+};
+
+/**
+ * Mengambil semua kartu dalam hierarki dek atau folder tertentu.
+ * Jika itemId adalah folder, ia akan mengambil kartu dari semua dek turunan.
+ * Jika itemId adalah dek, ia hanya akan mengambil kartu dari dek tersebut.
+ * @param itemId ID dari dek atau folder.
+ * @returns Promise yang resolve ke array Card.
+ */
+const getCardsInHierarchy = async (itemId: number): Promise<Card[]> => {
+    const item = await db.decks.get(itemId);
+    if (!item) {
+        console.error(`Item dengan ID ${itemId} tidak ditemukan.`);
+        return [];
+    }
+
+    let targetDeckIds: number[] = [];
+    if (item.type === 'folder') {
+        targetDeckIds = await getDescendantDeckIds(item.id);
+    } else {
+        targetDeckIds = [item.id];
+    }
+
+    if (targetDeckIds.length === 0) {
+        return [];
+    }
+    
+    return await db.cards.where('deckId').anyOf(targetDeckIds).toArray();
 };
 
 
@@ -55,42 +114,96 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
             const now = new Date();
 
             const cardsByDeckId = allCards.reduce((acc, card) => {
-                if (!acc[card.deckId]) {
-                    acc[card.deckId] = [];
-                }
+                if (!acc[card.deckId]) acc[card.deckId] = [];
                 acc[card.deckId].push(card);
                 return acc;
             }, {} as Record<number, Card[]>);
-
-            const updatedDecks: Deck[] = [];
-
-            for (const deck of allDecks) {
+            
+            // FIX: Explicitly type the Map to ensure correct type inference for deck objects.
+            const deckMap = new Map<number, Deck>(allDecks.map(d => [d.id, { ...d }]));
+            
+            // Langkah 1: Hitung statistik untuk setiap dek individual
+            for (const deck of deckMap.values()) {
                 if (deck.type === 'deck') {
                     const deckCards = cardsByDeckId[deck.id] || [];
-                    const cardCount = deckCards.length;
-                    const dueCount = deckCards.filter(c => c.dueDate <= now).length;
+                    deck.cardCount = deckCards.length;
+                    deck.dueCount = deckCards.filter(c => c.dueDate <= now).length;
                     const studiedCount = deckCards.filter(c => c.interval > 0).length;
-                    const progress = cardCount > 0 ? (studiedCount / cardCount) * 100 : 0;
-
-                    // Hanya perbarui jika ada perubahan untuk efisiensi
-                    if (deck.cardCount !== cardCount || deck.dueCount !== dueCount || Math.round(deck.progress) !== Math.round(progress)) {
-                         updatedDecks.push({
-                            ...deck,
-                            cardCount,
-                            dueCount,
-                            progress,
-                        });
-                    }
+                    deck.progress = deck.cardCount > 0 ? (studiedCount / deck.cardCount) * 100 : 0;
+                } else {
+                    // Reset statistik folder sebelum agregasi
+                    deck.cardCount = 0;
+                    deck.dueCount = 0;
+                    deck.progress = 0;
                 }
             }
-            
+
+            // Langkah 2: Hitung statistik agregat secara rekursif untuk folder
+            const childrenMap = new Map<number | null, Deck[]>();
+            allDecks.forEach(d => {
+                const parentId = d.parentId ?? null;
+                if (!childrenMap.has(parentId)) childrenMap.set(parentId, []);
+                childrenMap.get(parentId)!.push(d);
+            });
+
+            const calculatedFolderIds = new Set<number>();
+
+            // FIX: Add an explicit return type `Deck` to the recursive function to resolve type errors.
+            const calculateStatsForNode = (deckId: number): Deck => {
+                const deck = deckMap.get(deckId)!;
+                if (deck.type === 'deck') return deck;
+                if (calculatedFolderIds.has(deckId)) return deck;
+
+                const children = childrenMap.get(deckId) || [];
+                let totalCardCount = 0;
+                let totalDueCount = 0;
+                let totalStudiedCount = 0;
+
+                for (const child of children) {
+                    const childWithStats = calculateStatsForNode(child.id);
+                    totalCardCount += childWithStats.cardCount;
+                    totalDueCount += childWithStats.dueCount;
+                    totalStudiedCount += (childWithStats.progress / 100) * childWithStats.cardCount;
+                }
+                
+                deck.cardCount = totalCardCount;
+                deck.dueCount = totalDueCount;
+                deck.progress = totalCardCount > 0 ? (totalStudiedCount / totalCardCount) * 100 : 0;
+                
+                calculatedFolderIds.add(deckId);
+                return deck;
+            };
+
+            for (const deck of allDecks) {
+                if (deck.type === 'folder') {
+                    calculateStatsForNode(deck.id);
+                }
+            }
+
+            const updatedDecks = Array.from(deckMap.values());
             if (updatedDecks.length > 0) {
-                await db.decks.bulkPut(updatedDecks);
-                console.log(`Statistik diperbarui untuk ${updatedDecks.length} dek.`);
+                 await db.decks.bulkPut(updatedDecks);
+                 console.log(`Statistik diperbarui untuk ${updatedDecks.length} item.`);
             }
         });
     } catch (error) {
         console.error("Gagal melakukan rekalkulasi statistik dek:", error);
+    }
+  },
+  
+  getCardCountInHierarchy: async (folderId: number): Promise<number> => {
+    try {
+        const descendantDeckIds = await getDescendantDeckIds(folderId);
+
+        if (descendantDeckIds.length === 0) {
+            return 0;
+        }
+
+        const totalCardCount = await db.cards.where('deckId').anyOf(descendantDeckIds).count();
+        return totalCardCount;
+    } catch (error) {
+        console.error(`Gagal menghitung kartu dalam hierarki untuk folder ${folderId}:`, error);
+        return 0;
     }
   },
 
@@ -105,6 +218,7 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
         dueCount: 0,
       };
       await db.decks.add(newDeckData as Deck);
+      // Tidak perlu re-kalkulasi karena dek/folder baru tidak memiliki kartu
     } catch (error) {
       console.error("Gagal menambahkan dek:", error);
     }
@@ -134,6 +248,7 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
         await db.decks.bulkDelete(deckIdsToDelete);
       });
       
+      await get().recalculateAllDeckStats();
     } catch (error) {
       console.error(`Gagal menghapus dek ${deckId} dan turunannya:`, error);
     }
@@ -181,6 +296,7 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
                 }
             }
         });
+        await get().recalculateAllDeckStats();
     } catch (error) {
         console.error(`Gagal menduplikasi dek ${deckId}:`, error);
     }
@@ -189,6 +305,7 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
   updateDeckParent: async (deckId: number, newParentId: number | null) => {
     try {
       await db.decks.update(deckId, { parentId: newParentId });
+      await get().recalculateAllDeckStats();
     } catch (error) {
       console.error(`Gagal memperbarui parent dek ${deckId}:`, error);
     }
@@ -196,36 +313,23 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
 
   addCardToDeck: async (deckId: number, front: string, back: string, transcription?: string, example?: string, imageUrl?: string) => {
     try {
-      await db.transaction('rw', db.cards, db.decks, async () => {
-        // 1. Tambahkan kartu baru
-        const newCard: Omit<Card, 'id'> = {
-            deckId,
-            front,
-            back,
-            transcription,
-            example,
-            imageUrl,
-            dueDate: new Date(), // Kartu baru langsung jatuh tempo
-            interval: 0,
-            easeFactor: 2.5,
-        };
-        await db.cards.add(newCard as Card);
-
-        // 2. Hitung ulang statistik dek
-        const cardCount = await db.cards.where({ deckId }).count();
-        const dueCount = await db.cards.where({ deckId }).and(card => card.dueDate <= new Date()).count();
-        const studiedCount = await db.cards.where({ deckId }).filter(c => c.interval > 0).count();
-        const progress = cardCount > 0 ? (studiedCount / cardCount) * 100 : 0;
-        
-        // 3. Perbarui dek induk dengan statistik baru
-        await db.decks.update(deckId, {
-            cardCount,
-            dueCount,
-            progress
-        });
-      });
+      const newCard: Omit<Card, 'id'> = {
+          deckId,
+          front,
+          back,
+          transcription,
+          example,
+          imageUrl,
+          dueDate: new Date(), // Kartu baru langsung jatuh tempo
+          interval: 0,
+          easeFactor: 2.5,
+          repetitions: 0,
+          isMastered: false,
+      };
+      await db.cards.add(newCard as Card);
+      await get().recalculateAllDeckStats();
     } catch (error) {
-        console.error("Gagal menambahkan kartu dan memperbarui statistik dek:", error);
+        console.error("Gagal menambahkan kartu:", error);
     }
   },
 
@@ -239,31 +343,8 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
 
   deleteCard: async (cardId: number) => {
     try {
-        const cardToDelete = await db.cards.get(cardId);
-        if (!cardToDelete) {
-            console.error(`Kartu dengan ID ${cardId} tidak ditemukan.`);
-            return;
-        }
-        const { deckId } = cardToDelete; // Dapatkan deckId sebelum menghapus
-
-        await db.transaction('rw', db.cards, db.decks, async () => {
-            // 1. Hapus kartu
-            await db.cards.delete(cardId);
-            
-            // 2. Hitung ulang statistik dek
-            const cardCount = await db.cards.where({ deckId }).count();
-            const dueCount = await db.cards.where({ deckId }).and(card => card.dueDate <= new Date()).count();
-            const studiedCount = await db.cards.where({ deckId }).filter(c => c.interval > 0).count();
-            const progress = cardCount > 0 ? (studiedCount / cardCount) * 100 : 0;
-            
-            // 3. Perbarui dek induk dengan statistik baru
-            await db.decks.update(deckId, {
-                cardCount,
-                dueCount,
-                progress
-            });
-        });
-
+      await db.cards.delete(cardId);
+      await get().recalculateAllDeckStats();
     } catch (error) {
         console.error(`Gagal menghapus kartu ${cardId}:`, error);
     }
@@ -271,53 +352,47 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
 
   startQuiz: async (deckId: number, cardSet: 'due' | 'new' | 'review_all' = 'due', quizMode: 'sr' | 'simple' | 'blitz' = 'sr') => {
     try {
-      const deck = await db.decks.get(deckId);
-      if (!deck) throw new Error("Dek tidak ditemukan");
+      const item = await db.decks.get(deckId);
+      if (!item) throw new Error("Item tidak ditemukan");
 
+      // Mengambil semua kartu yang relevan dari hierarki dek/folder
+      const allCardsInScope = await getCardsInHierarchy(deckId);
+
+      if (allCardsInScope.length === 0) {
+        console.log(`Tidak ada kartu yang ditemukan dalam ${item.type} '${item.title}' untuk memulai kuis.`);
+        return;
+      }
+      
       let cardsToReview: Card[] = [];
       const now = new Date();
 
       if (quizMode === 'simple') {
-        // Untuk 'Simple Mode', muat semua kartu, prioritaskan yang baru.
-        const allCards = await db.cards.where({ deckId }).toArray();
-        allCards.sort((a, b) => {
-            if (a.interval === 0 && b.interval !== 0) return -1; // 'a' (baru) datang duluan
-            if (a.interval !== 0 && b.interval === 0) return 1;  // 'b' (baru) datang duluan
-            return 0; // Pertahankan urutan asli untuk yang lain
+        allCardsInScope.sort((a, b) => {
+            if (a.interval === 0 && b.interval !== 0) return -1;
+            if (a.interval !== 0 && b.interval === 0) return 1;
+            return 0;
         });
-        cardsToReview = allCards;
+        cardsToReview = allCardsInScope;
       } else {
-        // Logika yang ada untuk mode 'sr' dan 'blitz'
         switch (cardSet) {
           case 'new':
-            cardsToReview = await db.cards
-              .where({ deckId: deckId, interval: 0 })
-              .toArray();
+            cardsToReview = allCardsInScope.filter(c => c.interval === 0);
             break;
           case 'review_all':
-            cardsToReview = await db.cards
-              .where('deckId')
-              .equals(deckId)
-              .and(card => card.interval > 0)
-              .toArray();
+            cardsToReview = allCardsInScope.filter(c => c.interval > 0);
             break;
           case 'due':
           default:
-            cardsToReview = await db.cards
-              .where('deckId')
-              .equals(deckId)
-              .and(card => card.dueDate <= now)
-              .toArray();
+            cardsToReview = allCardsInScope.filter(c => c.dueDate <= now);
             break;
         }
       }
 
       if (cardsToReview.length > 0) {
         const shuffledCards = shuffleArray(cardsToReview);
-        set({ quizDeck: deck, quizCards: shuffledCards, quizMode, gameType: null });
+        set({ quizDeck: item, quizCards: shuffledCards, quizMode, gameType: null });
       } else {
         console.log(`Tidak ada kartu untuk diulang untuk set: ${cardSet} dengan mode: ${quizMode}`);
-        // Di masa depan, kita bisa menampilkan notifikasi kepada pengguna.
       }
     } catch (error) {
       console.error("Gagal memulai kuis:", error);
@@ -326,27 +401,29 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
   
   startGame: async (deckId: number, gameType: GameType, quizMode: 'sr' | 'simple' | 'blitz') => {
     try {
-      const deck = await db.decks.get(deckId);
-      if (!deck) throw new Error("Dek tidak ditemukan");
+      const item = await db.decks.get(deckId);
+      if (!item) throw new Error("Item tidak ditemukan");
 
+      // Mengambil semua kartu yang relevan dari hierarki dek/folder
+      const allCardsInScope = await getCardsInHierarchy(deckId);
+
+      if (allCardsInScope.length === 0) {
+        console.log(`Tidak ada kartu yang ditemukan dalam ${item.type} '${item.title}' untuk memulai permainan.`);
+        return;
+      }
+      
       let cardsToReview: Card[] = [];
       const now = new Date();
-
+      
       if (quizMode === 'simple') {
-        // Untuk 'Simple Mode', muat semua kartu.
-        const allCards = await db.cards.where({ deckId }).toArray();
-        cardsToReview = allCards;
-      } else { // Mode 'sr' dan 'blitz' akan menggunakan kartu yang jatuh tempo untuk permainan
-        cardsToReview = await db.cards
-          .where('deckId')
-          .equals(deckId)
-          .and(card => card.dueDate <= now)
-          .toArray();
+        cardsToReview = allCardsInScope;
+      } else {
+        cardsToReview = allCardsInScope.filter(card => card.dueDate <= now);
       }
       
       if (cardsToReview.length > 0) {
         const shuffledCards = shuffleArray(cardsToReview);
-        set({ quizDeck: deck, quizCards: shuffledCards, gameType, quizMode });
+        set({ quizDeck: item, quizCards: shuffledCards, gameType, quizMode });
       } else {
         console.log(`Tidak ada kartu untuk memulai permainan dengan mode: ${quizMode}`);
       }
@@ -359,15 +436,42 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
     set({ quizDeck: null, quizCards: [], quizMode: null, gameType: null });
   },
 
-  updateCardSrs: async (card: Card, quality: number) => {
-    const { interval, easeFactor } = calculateSrsData(quality, { interval: card.interval, easeFactor: card.easeFactor });
+  updateCardProgress: async (card: Card, feedback: 'lupa' | 'ingat') => {
+    // Memetakan feedback sederhana ke skor kualitas untuk algoritma SM-2
+    // 'lupa' -> kualitas rendah (reset), 'ingat' -> kualitas baik (maju)
+    const quality = feedback === 'ingat' ? 4 : 2;
+    
+    const { interval, easeFactor, repetitions } = calculateSrsData(quality, {
+      interval: card.interval,
+      easeFactor: card.easeFactor,
+      repetitions: card.repetitions,
+    });
     const dueDate = getNextDueDate(interval);
+    const isMastered = repetitions >= 5; // Tandai sebagai dikuasai setelah 5 repetisi berhasil.
     
     await db.cards.update(card.id!, {
       interval,
       easeFactor,
       dueDate,
+      repetitions,
+      isMastered,
     });
+
+    // Jika pengguna lupa, pindahkan kartu ke akhir antrian untuk diulang dalam sesi ini
+    if (feedback === 'lupa') {
+      set(state => {
+        const cardIndex = state.quizCards.findIndex(c => c.id === card.id);
+        
+        // Hanya antrikan ulang jika ditemukan dan ada lebih dari satu kartu tersisa
+        if (cardIndex > -1 && state.quizCards.length > 1) {
+          const newQuizCards = [...state.quizCards];
+          const [failedCard] = newQuizCards.splice(cardIndex, 1);
+          newQuizCards.push(failedCard);
+          return { quizCards: newQuizCards };
+        }
+        return {}; // Tidak ada perubahan jika tidak ditemukan atau hanya satu kartu
+      });
+    }
   },
 
   getDecksByParentId: async (parentId: number | null): Promise<Deck[]> => {
@@ -375,10 +479,6 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
       const decksFromDb = parentId === null
         ? await db.decks.filter(deck => deck.parentId === null).toArray()
         : await db.decks.where({ parentId: parentId }).toArray();
-      
-      // Catatan: Statistik yang ditampilkan di sini sekarang sudah benar
-      // karena recalculateAllDeckStats() sudah berjalan.
-      // Kita tidak perlu menghitung ulang di sini lagi, cukup baca dari DB.
       return decksFromDb;
     } catch (error) {
       console.error(`Gagal mengambil dek berdasarkan parentId ${parentId}:`, error);
@@ -459,7 +559,21 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
   
   getDeckStats: async (deckId: number) => {
     try {
-        const cards = await db.cards.where({ deckId }).toArray();
+        const item = await db.decks.get(deckId);
+        if (!item) throw new Error("Item tidak ditemukan");
+
+        let targetDeckIds: number[] = [];
+        if (item.type === 'folder') {
+            targetDeckIds = await getDescendantDeckIds(item.id);
+        } else {
+            targetDeckIds = [item.id];
+        }
+        
+        if (targetDeckIds.length === 0) {
+            return { newCount: 0, repeatCount: 0, learnedCount: 0, totalCount: 0 };
+        }
+
+        const cards = await db.cards.where('deckId').anyOf(targetDeckIds).toArray();
         const now = new Date();
 
         const newCount = cards.filter(c => c.interval === 0).length;
@@ -469,7 +583,7 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
 
         return { newCount, repeatCount, learnedCount, totalCount };
     } catch (error) {
-        console.error(`Gagal mendapatkan statistik untuk dek ${deckId}:`, error);
+        console.error(`Gagal mendapatkan statistik untuk item ${deckId}:`, error);
         return { newCount: 0, repeatCount: 0, learnedCount: 0, totalCount: 0 };
     }
   },

@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 type StudyMode = 'sr' | 'simple' | 'blitz';
+export type SortOption = 'date-desc' | 'date-asc' | 'title-asc' | 'title-desc';
+export type FilterOption = 'all' | 'folders' | 'decks';
 
 interface SettingsState {
   theme: 'light' | 'dark';
@@ -12,6 +14,10 @@ interface SettingsState {
   setTimerDuration: (duration: number) => void;
   currentStudyMode: StudyMode;
   setCurrentStudyMode: (mode: StudyMode) => void;
+  sortOption: SortOption;
+  setSortOption: (option: SortOption) => void;
+  filterOption: FilterOption;
+  setFilterOption: (option: FilterOption) => void;
 }
 
 // Deteksi preferensi tema sistem sebagai default awal
@@ -26,6 +32,8 @@ export const useThemeStore = create(
       studyDirection: 'kanji', // Preferensi belajar default
       timerDuration: 10, // Durasi default untuk Blitz Mode dalam detik
       currentStudyMode: 'sr', // Mode belajar default
+      sortOption: 'date-desc', // Default: Terbaru dulu
+      filterOption: 'all',     // Default: Tampilkan semua
       toggleTheme: () =>
         set((state) => ({
           theme: state.theme === 'dark' ? 'light' : 'dark',
@@ -33,6 +41,8 @@ export const useThemeStore = create(
       setStudyDirection: (direction) => set({ studyDirection: direction }),
       setTimerDuration: (duration) => set({ timerDuration: duration }),
       setCurrentStudyMode: (mode) => set({ currentStudyMode: mode }),
+      setSortOption: (option) => set({ sortOption: option }),
+      setFilterOption: (option) => set({ filterOption: option }),
     }),
     {
       name: 'flashcard-settings-storage', // nama unik untuk localStorage

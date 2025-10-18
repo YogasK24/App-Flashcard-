@@ -10,9 +10,9 @@ import Icon from '../components/Icon';
 import TimerSettingsModal from '../components/TimerSettingsModal';
 
 const Quiz: React.FC = () => {
-  const { quizCards, updateCardSrs, endQuiz, quizMode } = useCardStore(state => ({
+  const { quizCards, updateCardProgress, endQuiz, quizMode } = useCardStore(state => ({
     quizCards: state.quizCards,
-    updateCardSrs: state.updateCardSrs,
+    updateCardProgress: state.updateCardProgress,
     endQuiz: state.endQuiz,
     quizMode: state.quizMode,
   }));
@@ -88,11 +88,11 @@ const Quiz: React.FC = () => {
       // Tunggu animasi balik kartu (500ms) + sedikit waktu lihat (500ms)
       // TTS akan dipicu oleh useEffect di Flashcard saat isFlipped berubah.
       setTimeout(() => {
-        handleRate(1); // Anggap sebagai jawaban 'Lagi'
+        handleRate('lupa'); // Anggap sebagai jawaban 'Lupa'
       }, 1000);
     } else {
       // Jika sudah dibalik, langsung nilai
-      handleRate(1);
+      handleRate('lupa');
     }
   };
 
@@ -106,23 +106,30 @@ const Quiz: React.FC = () => {
     setIsFlipped(true);
   };
 
-  const handleRate = async (quality: number) => {
+  const handleRate = async (feedback: 'lupa' | 'ingat') => {
     if (isProcessing) return;
     setIsProcessing(true);
 
-    setDirection(1); // Atur arah animasi ke 'next'
-    // Hanya perbarui SRS jika dalam mode Spaced Repetition
+    const cardIsLastInQueue = currentCardIndex === quizCards.length - 1;
+    setDirection(1);
+
+    // Hanya perbarui statistik SRS jika dalam mode 'sr'
     if (quizMode === 'sr') {
-      await updateCardSrs(currentCard, quality);
+      await updateCardProgress(currentCard, feedback);
     }
-    
-    // Balik kartu kembali sebelum transisi ke kartu berikutnya
+
     setIsFlipped(false);
-    
-    // Beri sedikit jeda agar animasi flip bisa mulai sebelum kartu bergeser
+
+    // Beri jeda untuk animasi balik kartu
     setTimeout(() => {
+      // Untuk mode 'simple' dan 'blitz', selalu maju ke kartu berikutnya.
+      // Untuk mode 'sr', maju jika jawaban 'ingat', atau jika itu adalah kartu
+      // terakhir yang ditandai 'lupa' (untuk menghindari loop tak terbatas).
+      if (quizMode !== 'sr' || feedback === 'ingat' || cardIsLastInQueue) {
         setCurrentCardIndex(prevIndex => prevIndex + 1);
-        setIsProcessing(false);
+      }
+      
+      setIsProcessing(false);
     }, 150);
   };
 

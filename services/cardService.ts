@@ -4,29 +4,33 @@
 
 const MIN_EASE_FACTOR = 1.3;
 
-interface SrsData {
+export interface SrsData {
   interval: number;
   easeFactor: number;
+  repetitions: number;
 }
 
 /**
- * Menghitung interval dan ease factor berikutnya berdasarkan kualitas jawaban.
+ * Menghitung interval, ease factor, dan repetisi berikutnya berdasarkan kualitas jawaban.
  * @param quality Kualitas jawaban (0-5), di mana 5 adalah jawaban terbaik.
  * @param srsData Data SRS kartu saat ini.
  * @returns Data SRS yang telah diperbarui.
  */
 export const calculateSrsData = (quality: number, srsData: SrsData): SrsData => {
   if (quality < 3) {
-    // Jika jawaban salah, reset interval.
-    return { ...srsData, interval: 1 };
+    // Jika jawaban salah, reset repetisi dan atur ulang interval.
+    return { ...srsData, repetitions: 0, interval: 1 };
   }
 
+  const newRepetitions = srsData.repetitions + 1;
   let newInterval;
-  if (srsData.interval === 0) {
+
+  if (newRepetitions === 1) {
     newInterval = 1;
-  } else if (srsData.interval === 1) {
+  } else if (newRepetitions === 2) {
     newInterval = 6;
   } else {
+    // Untuk repetisi berikutnya, kalikan interval sebelumnya dengan ease factor.
     newInterval = Math.round(srsData.interval * srsData.easeFactor);
   }
 
@@ -35,7 +39,7 @@ export const calculateSrsData = (quality: number, srsData: SrsData): SrsData => 
     srsData.easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
   );
 
-  return { interval: newInterval, easeFactor: newEaseFactor };
+  return { interval: newInterval, easeFactor: newEaseFactor, repetitions: newRepetitions };
 };
 
 /**

@@ -1,7 +1,18 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useThemeStore } from '../store/themeStore';
 import Icon from './Icon';
+
+const sunVariants: Variants = {
+  initial: { rotate: -90, opacity: 0, y: 20 },
+  animate: { rotate: 0, opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeInOut' } },
+  exit: { rotate: 90, opacity: 0, y: -20, transition: { duration: 0.3, ease: 'easeInOut' } },
+};
+const moonVariants: Variants = {
+  initial: { rotate: 90, opacity: 0, y: -20 },
+  animate: { rotate: 0, opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeInOut' } },
+  exit: { rotate: -90, opacity: 0, y: 20, transition: { duration: 0.3, ease: 'easeInOut' } },
+};
 
 const ThemeToggle: React.FC = () => {
   const { theme, toggleTheme } = useThemeStore();
@@ -16,10 +27,10 @@ const ThemeToggle: React.FC = () => {
         {theme === 'dark' ? (
           <motion.div
             key="sun"
-            initial={{ rotate: -90, opacity: 0, y: 20 }}
-            animate={{ rotate: 0, opacity: 1, y: 0 }}
-            exit={{ rotate: 90, opacity: 0, y: -20 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            variants={sunVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
             className="absolute"
           >
             <Icon name="sun" className="w-6 h-6" />
@@ -27,10 +38,10 @@ const ThemeToggle: React.FC = () => {
         ) : (
           <motion.div
             key="moon"
-            initial={{ rotate: 90, opacity: 0, y: -20 }}
-            animate={{ rotate: 0, opacity: 1, y: 0 }}
-            exit={{ rotate: -90, opacity: 0, y: 20 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            variants={moonVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
             className="absolute"
           >
             <Icon name="moon" className="w-6 h-6" />

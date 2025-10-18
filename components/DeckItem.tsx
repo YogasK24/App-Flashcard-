@@ -22,13 +22,11 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
   const isLoading = openingDeckId === deck.id;
 
   const handleItemClick = () => {
-    // Logika klik disederhanakan: komponen induk yang akan memutuskan
-    // apakah akan menavigasi ke folder atau menampilkan daftar kartu.
     onItemClick(deck);
   };
   
   const handlePlay = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Mencegah handleItemClick terpicu juga
+    e.stopPropagation();
     onPlayClick(deck.id);
   };
 
@@ -48,39 +46,41 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
       <Icon name={isContainer ? 'folder' : 'document'} className="w-6 h-6 text-[#C8B4F3]" />
       <div className="flex-grow">
         <h3 className="text-gray-900 dark:text-[#E6E1E5] font-semibold">{deck.title}</h3>
+        
+        <div className="text-xs text-gray-500 dark:text-[#948F99] mt-1">
+          <span>{deck.cardCount} kartu</span>
+          {deck.dueCount > 0 && <span className="ml-2 text-yellow-500 dark:text-yellow-400">{deck.dueCount} perlu diulang</span>}
+        </div>
+        
         {!isContainer && (
-          <>
-            <div className="text-xs text-gray-500 dark:text-[#948F99] mt-1">
-              <span>{deck.cardCount} kartu</span>
-              {deck.dueCount > 0 && <span className="ml-2 text-yellow-500 dark:text-yellow-400">{deck.dueCount} perlu diulang</span>}
-            </div>
             <div className="w-full bg-gray-200 dark:bg-[#4A4458] rounded-full h-1 mt-2">
               <div
                 className="bg-[#C8B4F3] h-1 rounded-full"
                 style={{ width: `${deck.progress}%` }}
               ></div>
             </div>
-          </>
         )}
       </div>
-      {isContainer ? (
-        <div className="p-2" aria-hidden="true">
-          <Icon name="chevronRight" className="w-6 h-6 text-gray-400 dark:text-[#948F99]" />
-        </div>
-      ) : (
+
+      <div className="flex items-center flex-shrink-0">
+        {isContainer && (
+            <div className="p-2" aria-hidden="true">
+            <Icon name="chevronRight" className="w-6 h-6 text-gray-400 dark:text-[#948F99]" />
+            </div>
+        )}
         <button
-          onClick={handlePlay}
-          disabled={deck.cardCount === 0 || isLoading}
-          className="p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black/5 dark:hover:bg-white/10 transition-transform duration-200 ease-in-out hover:scale-105 active:scale-95"
-          aria-label={`Mulai kuis untuk ${deck.title}`}
+            onClick={handlePlay}
+            disabled={deck.cardCount === 0 || isLoading}
+            className="p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black/5 dark:hover:bg-white/10 transition-transform duration-200 ease-in-out hover:scale-105 active:scale-95"
+            aria-label={`Mulai kuis untuk ${deck.title}`}
         >
-          {isLoading ? (
+            {isLoading ? (
             <Icon name="refresh" className="w-6 h-6 text-[#C8B4F3] animate-spin" />
-          ) : (
+            ) : (
             <Icon name="play" className="w-6 h-6 text-[#C8B4F3]" />
-          )}
+            )}
         </button>
-      )}
+      </div>
     </motion.div>
   );
 };

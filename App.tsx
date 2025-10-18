@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import StudyDirectionToggle from './components/StudyDirectionToggle';
@@ -20,6 +20,7 @@ import GamePage from './pages/GamePage';
 import QuizModeSelector from './components/QuizModeSelector';
 import EditCardPage from './pages/EditCardPage';
 import { initializeTTS } from './services/ttsService';
+import SortFilterModal from './components/SortFilterModal';
 
 
 function App() {
@@ -52,7 +53,7 @@ function App() {
     deleteCard: state.deleteCard,
     recalculateAllDeckStats: state.recalculateAllDeckStats,
   }));
-  const { theme } = useThemeStore();
+  const { theme, sortOption, filterOption } = useThemeStore();
 
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +65,7 @@ function App() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQuizModeSelectorOpen, setIsQuizModeSelectorOpen] = useState(false);
+  const [isSortFilterModalOpen, setIsSortFilterModalOpen] = useState(false);
   const [deckIdToQuiz, setDeckIdToQuiz] = useState<number | null>(null);
   const [openingDeckId, setOpeningDeckId] = useState<number | null>(null);
   const [contextMenuState, setContextMenuState] = useState({
@@ -77,6 +79,10 @@ function App() {
   const [editDeckTarget, setEditDeckTarget] = useState<Deck | null>(null);
   const [cardToEdit, setCardToEdit] = useState<Card | null>(null);
   const [deleteCardTarget, setDeleteCardTarget] = useState<Card | null>(null);
+
+  // State untuk fungsionalitas pencarian
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
 
   useEffect(() => {
     initializeTTS(); // Pastikan fungsi inisialisasi ini dipanggil sekali saat komponen dimuat.
@@ -124,6 +130,51 @@ function App() {
         fetchAndSetDecks();
     }
   }, [fetchAndSetDecks, isInitialized, refreshKey]);
+
+  const decksToDisplay = useMemo(() => {
+    let processedDecks = [...decks];
+
+    // 1. Filter berdasarkan tipe
+    if (filterOption === 'folders') {
+        processedDecks = processedDecks.filter(deck => deck.type === 'folder');
+    } else if (filterOption === 'decks') {
+        processedDecks = processedDecks.filter(deck => deck.type === 'deck');
+    }
+
+    // 2. Sortir
+    processedDecks.sort((a, b) => {
+        switch (sortOption) {
+            case 'title-asc':
+                return a.title.localeCompare(b.title);
+            case 'title-desc':
+                return b.title.localeCompare(a.title);
+            case 'date-asc':
+                return a.id - b.id;
+            case 'date-desc':
+            default:
+                return b.id - a.id;
+        }
+    });
+    
+    // 3. Filter berdasarkan kueri pencarian
+    if (searchQuery.trim() !== '') {
+       return processedDecks.filter(deck =>
+         deck.title.toLowerCase().includes(searchQuery.toLowerCase())
+       );
+    }
+    
+    return processedDecks;
+  }, [decks, filterOption, sortOption, searchQuery]);
+
+  const handleToggleSearch = () => {
+    setIsSearchVisible(prev => {
+      // Jika kita akan menyembunyikan bilah pencarian, bersihkan kueri
+      if (prev) {
+        setSearchQuery('');
+      }
+      return !prev;
+    });
+  };
 
   const handleDeckItemClick = (deck: Deck) => {
     if (deck.type === 'folder') {
@@ -255,7 +306,13 @@ function App() {
       <>
         {selectedDeckId === null ? (
           <>
-            <Header />
+            <Header 
+              isSearchVisible={isSearchVisible}
+              searchQuery={searchQuery}
+              onSearchChange={(e) => setSearchQuery(e.target.value)}
+              onToggleSearch={handleToggleSearch}
+              onOpenSortFilter={() => setIsSortFilterModalOpen(true)}
+            />
             <main className="px-4 pb-4 space-y-2">
               <Breadcrumbs 
                 currentDeckId={currentParentId} 
@@ -272,7 +329,7 @@ function App() {
                 animate="visible"
               >
                 <DeckList 
-                  decks={decks} 
+                  decks={decksToDisplay} 
                   loading={loading || !isInitialized} 
                   onItemClick={handleDeckItemClick} 
                   onShowContextMenu={handleShowContextMenu} 
@@ -428,6 +485,15 @@ function App() {
                 setDeckIdToQuiz(null);
                 setOpeningDeckId(null);
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isSortFilterModalOpen && (
+          <SortFilterModal
+            isOpen={isSortFilterModalOpen}
+            onClose={() => setIsSortFilterModalOpen(false)}
           />
         )}
       </AnimatePresence>

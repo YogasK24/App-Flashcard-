@@ -3,7 +3,7 @@ import React from 'react';
 interface QuizControlsProps {
   isFlipped: boolean;
   onShowAnswer: () => void;
-  onRate: (quality: number) => void;
+  onRate: (feedback: 'lupa' | 'ingat') => void;
   isBlitzMode?: boolean;
   disabled?: boolean;
 }
@@ -34,27 +34,20 @@ const QuizControls: React.FC<QuizControlsProps> = ({ isFlipped, onShowAnswer, on
   const baseButtonClass = "text-white font-semibold py-3 rounded-full transition-all duration-200 ease-in-out hover:scale-105 active:scale-95 disabled:opacity-50 disabled:transform-none";
 
   return (
-    <div className="mt-8 w-full grid grid-cols-3 gap-3">
+    <div className="mt-8 w-full grid grid-cols-2 gap-4">
       <button
-        onClick={() => onRate(1)}
+        onClick={() => onRate('lupa')}
         disabled={disabled}
         className={`${baseButtonClass} bg-red-500/80 hover:bg-red-500`}
       >
-        Lagi
+        Lupa
       </button>
       <button
-        onClick={() => onRate(3)}
-        disabled={disabled}
-        className={`${baseButtonClass} bg-blue-500/80 hover:bg-blue-500`}
-      >
-        Baik
-      </button>
-      <button
-        onClick={() => onRate(5)}
+        onClick={() => onRate('ingat')}
         disabled={disabled}
         className={`${baseButtonClass} bg-green-500/80 hover:bg-green-500`}
       >
-        Mudah
+        Ingat
       </button>
     </div>
   );

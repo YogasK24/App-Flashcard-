@@ -17,7 +17,7 @@ export const db = new Dexie('FlashcardDatabase') as Dexie & {
 
 db.version(1).stores({
   decks: '++id, title, parentId',
-  cards: '++id, deckId, dueDate',
+  cards: '++id, deckId, dueDate, isMastered',
   settings: 'id',
   studyHistory: '++id, timestamp',
   achievements: 'id',
