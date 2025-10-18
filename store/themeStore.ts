@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface ThemeState {
+interface SettingsState {
   theme: 'light' | 'dark';
   toggleTheme: () => void;
+  studyDirection: 'kanji' | 'katakana';
+  setStudyDirection: (direction: 'kanji' | 'katakana') => void;
 }
 
 // Deteksi preferensi tema sistem sebagai default awal
@@ -12,16 +14,18 @@ const prefersDark = typeof window !== 'undefined' && window.matchMedia && window
 const defaultTheme = prefersDark ? 'dark' : 'light';
 
 export const useThemeStore = create(
-  persist<ThemeState>(
+  persist<SettingsState>(
     (set) => ({
       theme: defaultTheme, // Gunakan default yang terdeteksi jika tidak ada di storage
+      studyDirection: 'kanji', // Preferensi belajar default
       toggleTheme: () =>
         set((state) => ({
           theme: state.theme === 'dark' ? 'light' : 'dark',
         })),
+      setStudyDirection: (direction) => set({ studyDirection: direction }),
     }),
     {
-      name: 'flashcard-theme-storage', // nama unik untuk localStorage
+      name: 'flashcard-settings-storage', // nama unik untuk localStorage
     }
   )
 );

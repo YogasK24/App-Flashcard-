@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
-import FilterBar from './components/FilterBar';
+import StudyDirectionToggle from './components/StudyDirectionToggle';
 import DeckList from './components/DeckList';
 import FloatingActionButton from './components/FloatingActionButton';
 import { useCardStore } from './store/cardStore';
@@ -60,7 +60,6 @@ function App() {
   const [currentParentDeck, setCurrentParentDeck] = useState<Deck | null>(null);
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [filter, setFilter] = useState<'kanji' | 'katakana'>('kanji');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQuizModeSelectorOpen, setIsQuizModeSelectorOpen] = useState(false);
@@ -264,7 +263,7 @@ function App() {
                   setSelectedDeckId(null);
                 }} 
               />
-              <FilterBar filter={filter} onFilterChange={setFilter} />
+              <StudyDirectionToggle />
               <motion.div
                 key={currentParentId ?? 'root'}
                 variants={containerVariants}
