@@ -1,11 +1,25 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Peringatan: Jangan pernah mengekspos API key di sisi klien dalam aplikasi produksi.
-// Ini diasumsikan akan diatur dalam lingkungan yang aman.
+// =================================================================================
+// CATATAN KEAMANAN & KONFIGURASI (SECURITY & CONFIGURATION NOTE)
+// =================================================================================
+// Kunci API yang diekspos di sisi klien hanya aman untuk tujuan prototipe.
+// Untuk aplikasi produksi, sangat disarankan untuk:
+// 1. Memindahkan logika panggilan API ke server backend yang aman.
+// 2. Jika harus tetap di sisi klien, batasi (restrict) kunci API Anda hanya untuk
+//    domain web aplikasi Anda di Google AI Studio untuk mencegah penyalahgunaan.
+//
+// Platform ini mengharapkan kunci API tersedia melalui `process.env.API_KEY`.
+// Jika Anda menggunakan build tool seperti Create React App atau Vite, pastikan
+// variabel lingkungan Anda (misalnya, `REACT_APP_GEMINI_API_KEY` atau
+// `VITE_GEMINI_API_KEY`) diatur dengan benar dalam konfigurasi build Anda
+// agar dapat diakses sebagai `process.env.API_KEY` di sini.
+// =================================================================================
+
 const apiKey = process.env.API_KEY;
 
 if (!apiKey) {
-    console.error("API Key for Gemini is not set. AI features will be disabled.");
+    console.error("API Key for Gemini is not set. AI features will be disabled. Ensure process.env.API_KEY is available.");
 }
 
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;

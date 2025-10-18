@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 // FIX: Import Variants type from framer-motion to resolve type incompatibility with transition property.
 import { motion, Variants } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
+import { useThemeStore } from '../store/themeStore';
 import ModeItem from './ModeItem';
 import Icon from './Icon';
 
@@ -11,6 +12,7 @@ interface QuizModeSelectorProps {
 }
 
 type GameType = 'pair-it' | 'guess-it' | 'recall-it' | 'type-it';
+type StudyMode = 'sr' | 'simple' | 'blitz';
 
 const backdropVariants: Variants = {
   visible: { opacity: 1 },
@@ -34,9 +36,12 @@ const modalVariants: Variants = {
 
 
 const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ deckId, onClose }) => {
-  const [currentMenu, setCurrentMenu] = useState<'main' | 'sub-mode' | 'sub-game'>('main');
+  const [menuLevel, setMenuLevel] = useState<'main' | 'sub'>('main');
+  const [viewMode, setViewMode] = useState<'modes' | 'games'>('games');
   const [stats, setStats] = useState({ newCount: 0, repeatCount: 0, learnedCount: 0, totalCount: 0 });
   const [loading, setLoading] = useState(true);
+
+  const { currentStudyMode, setCurrentStudyMode } = useThemeStore();
 
   const { getDeckStats, startQuiz, startGame } = useCardStore(state => ({
     getDeckStats: state.getDeckStats,
@@ -56,6 +61,9 @@ const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ deckId, onClose }) 
     }
   }, [deckId, getDeckStats]);
 
+  const toggleViewMode = () => {
+    setViewMode(prev => (prev === 'games' ? 'modes' : 'games'));
+  };
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -63,14 +71,24 @@ const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ deckId, onClose }) 
     }
   };
 
-  const handleStartQuiz = (cardSet: 'new' | 'review_all' | 'due', quizMode?: 'sr' | 'simple' | 'blitz') => {
-    startQuiz(deckId, cardSet, quizMode);
+  const handleStartQuiz = (cardSet: 'new' | 'review_all' | 'due') => {
+    startQuiz(deckId, cardSet, currentStudyMode);
     onClose();
   };
 
+  const handleSelectStudyMode = (mode: StudyMode) => {
+    setCurrentStudyMode(mode);
+    setViewMode('games'); // Kembali ke tampilan pemilihan permainan
+  };
+
   const handleStartGame = (gameType: GameType) => {
-    startGame(deckId, gameType);
+    startGame(deckId, gameType, currentStudyMode);
     onClose();
+  };
+
+  const handleNavigateToSubMenu = (initialView: 'modes' | 'games') => {
+    setViewMode(initialView);
+    setMenuLevel('sub');
   };
 
   const renderMainMenu = () => {
@@ -82,7 +100,7 @@ const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ deckId, onClose }) 
       );
     }
     
-    const wordsLeftToGame = stats.totalCount;
+    const isSimpleMode = currentStudyMode === 'simple';
 
     return (
       <div>
@@ -92,92 +110,68 @@ const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ deckId, onClose }) 
                 icon="edit"
                 iconColor="text-green-500"
                 title="Learn"
-                subtitle={`${stats.newCount} new words`}
+                subtitle={isSimpleMode ? `Mulai dengan semua ${stats.totalCount} kata` : `${stats.newCount} kata baru`}
                 onClick={() => handleStartQuiz('new')}
-                disabled={stats.newCount === 0}
+                disabled={isSimpleMode ? stats.totalCount === 0 : stats.newCount === 0}
             />
             <ModeItem 
                 icon="refresh"
                 iconColor="text-blue-500"
                 title="Repeat"
-                subtitle={`Repeat ${stats.repeatCount} words`}
-                onClick={() => setCurrentMenu('sub-mode')}
+                subtitle={`Ulangi ${stats.repeatCount} kata`}
+                onClick={() => handleNavigateToSubMenu('modes')}
                 disabled={stats.repeatCount === 0}
             />
             <ModeItem 
                 icon="search"
                 iconColor="text-purple-500"
                 title="Check learned words"
-                subtitle={`${stats.learnedCount} words`}
-                onClick={() => setCurrentMenu('sub-mode')}
+                subtitle={`${stats.learnedCount} kata`}
+                onClick={() => handleNavigateToSubMenu('modes')}
                 disabled={stats.learnedCount === 0}
             />
             <ModeItem 
                 icon="document"
                 iconColor="text-orange-500"
                 title="Review words"
-                subtitle={`${stats.learnedCount} words to review`}
+                subtitle={isSimpleMode ? `Ulangi semua ${stats.totalCount} kata` : `${stats.learnedCount} kata untuk diulang`}
                 onClick={() => handleStartQuiz('review_all')}
-                disabled={stats.learnedCount === 0}
+                disabled={isSimpleMode ? stats.totalCount === 0 : stats.learnedCount === 0}
             />
             <ModeItem 
                 icon="play"
                 iconColor="text-red-500"
                 title="One game"
-                subtitle={`Play with ${wordsLeftToGame} words`}
-                onClick={() => setCurrentMenu('sub-game')}
-                disabled={wordsLeftToGame === 0}
+                subtitle={`Bermain dengan ${stats.totalCount} kata`}
+                onClick={() => handleNavigateToSubMenu('games')}
+                disabled={stats.totalCount === 0}
             />
         </div>
       </div>
     );
   };
   
-  const renderSubModeMenu = () => {
-    return (
-      <div>
-        <div className="flex items-center mb-2">
-            <button onClick={() => setCurrentMenu('main')} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10" aria-label="Kembali">
-                <Icon name="chevronLeft" className="w-6 h-6" />
-            </button>
-            <h2 id="quiz-mode-title" className="text-xl font-bold text-center flex-grow text-gray-900 dark:text-white pr-8">
-                Pilih Mode
-            </h2>
-        </div>
-        <div className="p-2">
-            <ModeItem 
-                title="Spaced repetition mode"
-                subtitle="Gunakan algoritma SM-2 untuk hasil optimal."
-                onClick={() => handleStartQuiz('due', 'sr')}
-            />
-            <ModeItem 
-                title="Simple mode"
-                subtitle="Ulangi kartu secara berurutan."
-                onClick={() => handleStartQuiz('due', 'simple')}
-            />
-            <ModeItem 
-                title="Blitz mode"
-                subtitle="Uji kecepatanmu dengan waktu terbatas."
-                onClick={() => handleStartQuiz('due', 'blitz')}
-                highlighted={true}
-            />
-        </div>
-      </div>
-    );
-  };
+  const renderSubMenu = () => {
+    const isGameView = viewMode === 'games';
+    const title = isGameView ? 'Pilih Permainan' : 'Opsi Mode Belajar';
+    const toggleIcon = isGameView ? 'tune' : 'gamepad';
+    const toggleAriaLabel = isGameView ? 'Beralih ke Mode' : 'Beralih ke Permainan';
 
-  const renderSubGameMenu = () => {
     return (
       <div>
-        <div className="flex items-center mb-2">
-            <button onClick={() => setCurrentMenu('main')} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10" aria-label="Kembali">
-                <Icon name="chevronLeft" className="w-6 h-6" />
-            </button>
-            <h2 id="quiz-mode-title" className="text-xl font-bold text-center flex-grow text-gray-900 dark:text-white pr-8">
-                Pilih Permainan
-            </h2>
+        <div className="flex items-center justify-between mb-2 px-2 relative">
+          <button onClick={() => setMenuLevel('main')} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10" aria-label="Kembali">
+            <Icon name="chevronLeft" className="w-6 h-6" />
+          </button>
+          <h2 id="quiz-mode-title" className="absolute left-1/2 -translate-x-1/2 text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">
+            {title}
+          </h2>
+          <button onClick={toggleViewMode} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10" aria-label={toggleAriaLabel}>
+            <Icon name={toggleIcon} className="w-6 h-6" />
+          </button>
         </div>
-        <div className="p-2">
+        {isGameView ? (
+          <div className="p-2">
             <ModeItem 
                 icon="swap"
                 iconColor="text-teal-500"
@@ -206,19 +200,39 @@ const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ deckId, onClose }) 
                 subtitle="Ketik jawaban secepat mungkin."
                 onClick={() => handleStartGame('type-it')}
             />
-        </div>
+          </div>
+        ) : (
+          <div className="p-2">
+            <ModeItem 
+                title="Spaced repetition mode"
+                subtitle="Pelajari kata dengan sistem pengulangan berjarak."
+                onClick={() => handleSelectStudyMode('sr')}
+                highlighted={currentStudyMode === 'sr'}
+            />
+            <ModeItem 
+                title="Simple mode"
+                subtitle="Semua kata akan tersedia. Anda yang mengontrol."
+                onClick={() => handleSelectStudyMode('simple')}
+                highlighted={currentStudyMode === 'simple'}
+            />
+            <ModeItem 
+                title="Blitz mode"
+                subtitle="Pelajari kata-kata dalam satu kategori sampai tuntas."
+                onClick={() => handleSelectStudyMode('blitz')}
+                highlighted={currentStudyMode === 'blitz'}
+            />
+          </div>
+        )}
       </div>
     );
   };
 
   const renderContent = () => {
-    switch (currentMenu) {
+    switch (menuLevel) {
       case 'main':
         return renderMainMenu();
-      case 'sub-mode':
-        return renderSubModeMenu();
-      case 'sub-game':
-         return renderSubGameMenu();
+      case 'sub':
+        return renderSubMenu();
       default:
         return null;
     }

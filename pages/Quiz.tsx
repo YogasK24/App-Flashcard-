@@ -1,21 +1,28 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
+import { useThemeStore } from '../store/themeStore';
+import { useQuizTimer } from '../hooks/useQuizTimer';
 import Flashcard from '../components/Flashcard';
 import QuizHeader from '../components/QuizHeader';
 import QuizControls from '../components/QuizControls';
 import Icon from '../components/Icon';
+import TimerSettingsModal from '../components/TimerSettingsModal';
 
 const Quiz: React.FC = () => {
-  const { quizCards, updateCardSrs, endQuiz } = useCardStore(state => ({
+  const { quizCards, updateCardSrs, endQuiz, quizMode } = useCardStore(state => ({
     quizCards: state.quizCards,
     updateCardSrs: state.updateCardSrs,
     endQuiz: state.endQuiz,
+    quizMode: state.quizMode,
   }));
+  const { timerDuration } = useThemeStore(state => ({ timerDuration: state.timerDuration }));
 
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [direction, setDirection] = useState(1); // 1 for next, -1 for prev
+  const [isProcessing, setIsProcessing] = useState(false); // Mencegah klik/aksi ganda
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   const totalCards = quizCards.length;
   const currentCard = quizCards[currentCardIndex];
@@ -73,13 +80,41 @@ const Quiz: React.FC = () => {
     );
   }
 
+  const handleTimeUp = () => {
+    if (isProcessing) return;
+
+    if (!isFlipped) {
+      setIsFlipped(true);
+      // Tunggu animasi balik kartu (500ms) + sedikit waktu lihat (500ms)
+      // TTS akan dipicu oleh useEffect di Flashcard saat isFlipped berubah.
+      setTimeout(() => {
+        handleRate(1); // Anggap sebagai jawaban 'Lagi'
+      }, 1000);
+    } else {
+      // Jika sudah dibalik, langsung nilai
+      handleRate(1);
+    }
+  };
+
+  const { timeLeft } = useQuizTimer({
+    key: currentCard.id,
+    initialTime: timerDuration,
+    onTimeUp: handleTimeUp,
+  });
+
   const handleShowAnswer = () => {
     setIsFlipped(true);
   };
 
   const handleRate = async (quality: number) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+
     setDirection(1); // Atur arah animasi ke 'next'
-    await updateCardSrs(currentCard, quality);
+    // Hanya perbarui SRS jika dalam mode Spaced Repetition
+    if (quizMode === 'sr') {
+      await updateCardSrs(currentCard, quality);
+    }
     
     // Balik kartu kembali sebelum transisi ke kartu berikutnya
     setIsFlipped(false);
@@ -87,12 +122,17 @@ const Quiz: React.FC = () => {
     // Beri sedikit jeda agar animasi flip bisa mulai sebelum kartu bergeser
     setTimeout(() => {
         setCurrentCardIndex(prevIndex => prevIndex + 1);
+        setIsProcessing(false);
     }, 150);
   };
 
   return (
     <div className="flex flex-col h-full p-4 overflow-hidden">
-      <QuizHeader currentCardIndex={currentCardIndex + 1} totalCards={totalCards} />
+      <QuizHeader 
+        currentCardIndex={currentCardIndex + 1} 
+        totalCards={totalCards}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
+      />
       <div className="flex-grow flex items-center justify-center relative">
         <AnimatePresence initial={false} custom={direction}>
           <motion.div
@@ -111,6 +151,9 @@ const Quiz: React.FC = () => {
             <Flashcard
               card={currentCard}
               isFlipped={isFlipped}
+              quizMode={quizMode}
+              timeLeft={timeLeft}
+              duration={timerDuration}
             />
           </motion.div>
         </AnimatePresence>
@@ -120,8 +163,15 @@ const Quiz: React.FC = () => {
             isFlipped={isFlipped}
             onShowAnswer={handleShowAnswer}
             onRate={handleRate}
+            isBlitzMode={quizMode === 'blitz'}
+            disabled={isProcessing}
           />
       </div>
+
+      <TimerSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+      />
     </div>
   );
 };

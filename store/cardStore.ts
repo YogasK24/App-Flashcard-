@@ -11,7 +11,7 @@ interface CardStoreState {
   quizMode: 'sr' | 'simple' | 'blitz' | null;
   gameType: GameType | null;
   startQuiz: (deckId: number, cardSet?: 'due' | 'new' | 'review_all', quizMode?: 'sr' | 'simple' | 'blitz') => Promise<void>;
-  startGame: (deckId: number, gameType: GameType) => Promise<void>;
+  startGame: (deckId: number, gameType: GameType, quizMode: 'sr' | 'simple' | 'blitz') => Promise<void>;
   endQuiz: () => void;
   updateCardSrs: (card: Card, quality: number) => Promise<void>;
   addDeck: (title: string, type: 'deck' | 'folder', parentId: number | null) => Promise<void>;
@@ -324,18 +324,31 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
     }
   },
   
-  startGame: async (deckId: number, gameType: GameType) => {
+  startGame: async (deckId: number, gameType: GameType, quizMode: 'sr' | 'simple' | 'blitz') => {
     try {
       const deck = await db.decks.get(deckId);
       if (!deck) throw new Error("Dek tidak ditemukan");
 
-      // Untuk permainan, biasanya kita memuat semua kartu
-      const allCards = await db.cards.where({ deckId }).toArray();
+      let cardsToReview: Card[] = [];
+      const now = new Date();
+
+      if (quizMode === 'simple') {
+        // Untuk 'Simple Mode', muat semua kartu.
+        const allCards = await db.cards.where({ deckId }).toArray();
+        cardsToReview = allCards;
+      } else { // Mode 'sr' dan 'blitz' akan menggunakan kartu yang jatuh tempo untuk permainan
+        cardsToReview = await db.cards
+          .where('deckId')
+          .equals(deckId)
+          .and(card => card.dueDate <= now)
+          .toArray();
+      }
       
-      if (allCards.length > 0) {
-        set({ quizDeck: deck, quizCards: allCards, gameType, quizMode: null });
+      if (cardsToReview.length > 0) {
+        const shuffledCards = shuffleArray(cardsToReview);
+        set({ quizDeck: deck, quizCards: shuffledCards, gameType, quizMode });
       } else {
-        console.log("Tidak ada kartu di dek ini untuk memulai permainan.");
+        console.log(`Tidak ada kartu untuk memulai permainan dengan mode: ${quizMode}`);
       }
     } catch (error) {
         console.error("Gagal memulai permainan:", error);
