@@ -31,7 +31,7 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation(); // Mencegah handleItemClick terpicu juga
     if (deck.dueCount > 0) {
-      startQuiz(deck.id);
+      startQuiz(deck.id, 'due');
     } else {
       // Seharusnya tidak terjadi karena tombol dinonaktifkan, tetapi sebagai pengaman
       alert("Tidak ada kartu yang perlu diulang di dek ini.");

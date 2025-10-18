@@ -3,10 +3,15 @@ import { db } from '../services/databaseService';
 import { Deck, Card } from '../types';
 import { calculateSrsData, getNextDueDate } from '../services/cardService';
 
+type GameType = 'pair-it' | 'guess-it' | 'recall-it' | 'type-it';
+
 interface CardStoreState {
   quizDeck: Deck | null;
   quizCards: Card[];
-  startQuiz: (deckId: number) => Promise<void>;
+  quizMode: 'sr' | 'simple' | 'blitz' | null;
+  gameType: GameType | null;
+  startQuiz: (deckId: number, cardSet?: 'due' | 'new' | 'review_all', quizMode?: 'sr' | 'simple' | 'blitz') => Promise<void>;
+  startGame: (deckId: number, gameType: GameType) => Promise<void>;
   endQuiz: () => void;
   updateCardSrs: (card: Card, quality: number) => Promise<void>;
   addDeck: (title: string, type: 'deck' | 'folder', parentId: number | null) => Promise<void>;
@@ -22,11 +27,14 @@ interface CardStoreState {
   getCardsByDeckId: (deckId: number) => Promise<Card[]>;
   getDeckPath: (deckId: number | null) => Promise<Deck[]>;
   getPossibleParentDecks: (deckId: number) => Promise<Deck[]>;
+  getDeckStats: (deckId: number) => Promise<{ newCount: number; repeatCount: number; learnedCount: number; totalCount: number; }>;
 }
 
 export const useCardStore = create<CardStoreState>((set, get) => ({
   quizDeck: null,
   quizCards: [],
+  quizMode: null,
+  gameType: null,
 
   addDeck: async (title: string, type: 'deck' | 'folder', parentId: number | null) => {
     try {
@@ -170,25 +178,68 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
     }
   },
 
-  startQuiz: async (deckId: number) => {
+  startQuiz: async (deckId: number, cardSet: 'due' | 'new' | 'review_all' = 'due', quizMode: 'sr' | 'simple' | 'blitz' = 'sr') => {
     try {
       const deck = await db.decks.get(deckId);
       if (!deck) throw new Error("Dek tidak ditemukan");
-      
-      const cardsToReview = await db.cards
-        .where('deckId')
-        .equals(deckId)
-        .and((card) => card.dueDate <= new Date())
-        .toArray();
 
-      set({ quizDeck: deck, quizCards: cardsToReview });
+      let cardsToReview: Card[] = [];
+      const now = new Date();
+
+      switch (cardSet) {
+        case 'new':
+          cardsToReview = await db.cards
+            .where({ deckId: deckId, interval: 0 })
+            .toArray();
+          break;
+        case 'review_all':
+          cardsToReview = await db.cards
+            .where('deckId')
+            .equals(deckId)
+            .and(card => card.interval > 0)
+            .toArray();
+          break;
+        case 'due':
+        default:
+          cardsToReview = await db.cards
+            .where('deckId')
+            .equals(deckId)
+            .and(card => card.dueDate <= now)
+            .toArray();
+          break;
+      }
+
+      if (cardsToReview.length > 0) {
+        set({ quizDeck: deck, quizCards: cardsToReview, quizMode, gameType: null });
+      } else {
+        console.log(`No cards to review for card set: ${cardSet}`);
+        // Di masa depan, kita bisa menampilkan notifikasi kepada pengguna.
+      }
     } catch (error) {
       console.error("Gagal memulai kuis:", error);
     }
   },
+  
+  startGame: async (deckId: number, gameType: GameType) => {
+    try {
+      const deck = await db.decks.get(deckId);
+      if (!deck) throw new Error("Dek tidak ditemukan");
+
+      // Untuk permainan, biasanya kita memuat semua kartu
+      const allCards = await db.cards.where({ deckId }).toArray();
+      
+      if (allCards.length > 0) {
+        set({ quizDeck: deck, quizCards: allCards, gameType, quizMode: null });
+      } else {
+        console.log("Tidak ada kartu di dek ini untuk memulai permainan.");
+      }
+    } catch (error) {
+        console.error("Gagal memulai permainan:", error);
+    }
+  },
 
   endQuiz: () => {
-    set({ quizDeck: null, quizCards: [] });
+    set({ quizDeck: null, quizCards: [], quizMode: null, gameType: null });
   },
 
   updateCardSrs: async (card: Card, quality: number) => {
@@ -304,6 +355,23 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
     } catch (error) {
       console.error(`Gagal mengambil dek tujuan yang memungkinkan untuk dek ${deckId}:`, error);
       return [];
+    }
+  },
+  
+  getDeckStats: async (deckId: number) => {
+    try {
+        const cards = await db.cards.where({ deckId }).toArray();
+        const now = new Date();
+
+        const newCount = cards.filter(c => c.interval === 0).length;
+        const repeatCount = cards.filter(c => c.dueDate <= now && c.interval > 0).length;
+        const learnedCount = cards.filter(c => c.interval > 0).length;
+        const totalCount = cards.length;
+
+        return { newCount, repeatCount, learnedCount, totalCount };
+    } catch (error) {
+        console.error(`Gagal mendapatkan statistik untuk dek ${deckId}:`, error);
+        return { newCount: 0, repeatCount: 0, learnedCount: 0, totalCount: 0 };
     }
   },
 

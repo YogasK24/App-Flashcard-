@@ -18,11 +18,13 @@ import AddCardModal from './components/AddCardModal';
 import CardListView from './components/CardListView';
 import EditCardModal from './components/EditCardModal';
 import ConfirmDeleteCardModal from './components/ConfirmDeleteCardModal';
+import GamePage from './pages/GamePage';
 
 
 function App() {
   const { 
-    quizDeck, 
+    quizDeck,
+    gameType, 
     getDecksByParentId, 
     addDeck, 
     deleteDeck, 
@@ -36,6 +38,7 @@ function App() {
     deleteCard,
   } = useCardStore(state => ({
     quizDeck: state.quizDeck,
+    gameType: state.gameType,
     getDecksByParentId: state.getDecksByParentId,
     addDeck: state.addDeck,
     deleteDeck: state.deleteDeck,
@@ -284,6 +287,16 @@ function App() {
       </>
     );
   };
+  
+  const renderPage = () => {
+    if (gameType) {
+        return <GamePage />;
+    }
+    if (quizDeck) {
+        return <Quiz />;
+    }
+    return <MainScreen />;
+  };
 
   return (
     <div className="bg-gray-50 dark:bg-[#1C1B1F] min-h-screen text-gray-900 dark:text-[#E6E1E5] font-sans relative">
@@ -319,7 +332,7 @@ function App() {
         }
       `}</style>
       
-      {quizDeck ? <Quiz /> : <MainScreen />}
+      {renderPage()}
 
       {contextMenuState.isVisible && contextMenuState.deckId !== null && (
         <ContextMenu
