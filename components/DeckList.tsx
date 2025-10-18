@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Deck } from '../types';
@@ -33,8 +34,24 @@ const DeckList: React.FC<DeckListProps> = ({ decks, loading, onItemClick, onShow
     );
   }
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.07,
+        delayChildren: 0.1,
+      },
+    },
+  };
+
   return (
-    <motion.div className="space-y-2">
+    <motion.div 
+      className="space-y-2"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {decks.map((deck) => (
         <DeckItem 
           key={deck.id} 

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CardSearchResult } from '../App';
@@ -28,9 +29,24 @@ const CardSearchResultList: React.FC<CardSearchResultListProps> = ({ results, lo
       </div>
     );
   }
+  
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.07,
+      },
+    },
+  };
 
   return (
-    <motion.div className="space-y-2">
+    <motion.div 
+      className="space-y-2"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {results.map((result) => (
         <CardSearchResultItem 
           key={result.card.id} 

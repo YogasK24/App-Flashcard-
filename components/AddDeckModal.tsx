@@ -1,10 +1,11 @@
+
 import React, { useState, FormEvent } from 'react';
 import { motion, Variants } from 'framer-motion';
 import Icon from './Icon';
 
 interface AddDeckModalProps {
   onClose: () => void;
-  onAdd: (title: string, type: 'deck' | 'folder') => void;
+  onAdd: (title: string, type: 'deck' | 'folder') => Promise<{ success: boolean; message?: string; }>;
 }
 
 const backdropVariants: Variants = {
@@ -22,13 +23,20 @@ const modalVariants: Variants = {
 const AddDeckModal: React.FC<AddDeckModalProps> = ({ onClose, onAdd }) => {
   const [title, setTitle] = useState('');
   const [type, setType] = useState<'deck' | 'folder'>('deck');
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (title.trim()) {
-      onAdd(title.trim(), type);
-      setTitle(''); // Reset form
-      setType('deck');
+    if (title.trim() && !isSubmitting) {
+      setIsSubmitting(true);
+      setError(null);
+      const result = await onAdd(title.trim(), type);
+      setIsSubmitting(false);
+      if (!result.success) {
+          setError(result.message || "Gagal menambahkan item.");
+      }
+      // Jika berhasil, komponen induk (App.tsx) akan menutup modal.
     }
   };
   
@@ -85,6 +93,16 @@ const AddDeckModal: React.FC<AddDeckModalProps> = ({ onClose, onAdd }) => {
               </label>
             </div>
           </div>
+          
+          {error && (
+            <motion.p
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-red-500 text-sm -mt-2 mb-4 text-center"
+            >
+              {error}
+            </motion.p>
+          )}
 
           <div className="flex justify-end space-x-3">
             <button
@@ -96,10 +114,14 @@ const AddDeckModal: React.FC<AddDeckModalProps> = ({ onClose, onAdd }) => {
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-[#C8B4F3] text-black font-semibold rounded-full disabled:opacity-50"
-              disabled={!title.trim()}
+              className="px-6 py-2 bg-[#C8B4F3] text-black font-semibold rounded-full disabled:opacity-50 flex items-center justify-center min-w-[80px]"
+              disabled={!title.trim() || isSubmitting}
             >
-              Buat
+              {isSubmitting ? (
+                <Icon name="refresh" className="w-5 h-5 animate-spin" />
+              ) : (
+                'Buat'
+              )}
             </button>
           </div>
         </form>

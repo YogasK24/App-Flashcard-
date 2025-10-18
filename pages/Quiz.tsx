@@ -109,23 +109,26 @@ const Quiz: React.FC = () => {
   const handleRate = async (feedback: 'lupa' | 'ingat') => {
     if (isProcessing) return;
     setIsProcessing(true);
-
-    const cardIsLastInQueue = currentCardIndex === quizCards.length - 1;
     setDirection(1);
 
-    // Hanya perbarui statistik SRS jika dalam mode 'sr'
     if (quizMode === 'sr') {
       await updateCardProgress(currentCard, feedback);
     }
 
     setIsFlipped(false);
 
-    // Beri jeda untuk animasi balik kartu
     setTimeout(() => {
-      // Untuk mode 'simple' dan 'blitz', selalu maju ke kartu berikutnya.
-      // Untuk mode 'sr', maju jika jawaban 'ingat', atau jika itu adalah kartu
-      // terakhir yang ditandai 'lupa' (untuk menghindari loop tak terbatas).
-      if (quizMode !== 'sr' || feedback === 'ingat' || cardIsLastInQueue) {
+      if (quizMode === 'sr' && feedback === 'lupa') {
+        // Jika hanya ada satu kartu tersisa dan dijawab salah,
+        // kuis harus berakhir untuk menghindari perulangan tak terbatas.
+        // Kartu tersebut akan muncul di sesi berikutnya.
+        if (quizCards.length <= 1) {
+          setCurrentCardIndex(prevIndex => prevIndex + 1);
+        }
+        // Jika tidak, jangan naikkan indeks. Biarkan store menyusun ulang
+        // dan re-render akan menampilkan kartu berikutnya di indeks yang sama.
+      } else {
+        // Untuk 'ingat' di mode apa pun, atau 'lupa' di mode non-SR, lanjutkan ke kartu berikutnya.
         setCurrentCardIndex(prevIndex => prevIndex + 1);
       }
       

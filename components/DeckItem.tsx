@@ -59,12 +59,15 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
     <motion.div 
       id={`deck-item-${deck.id}`}
       variants={itemVariants}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      transition={{ duration: 0.2 }}
       onClick={handleItemClick}
       onContextMenu={(e) => {
         e.preventDefault();
         onShowContextMenu(e, deck.id);
       }}
-      className={`${flashClasses} p-4 rounded-lg flex items-center space-x-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-[#3A3841] transition-all duration-300 ease-in-out hover:scale-105 active:scale-95 shadow-sm ${highlightClasses}`}
+      className={`${flashClasses} p-4 rounded-lg flex items-center space-x-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-[#3A3841] transition-colors duration-300 ease-in-out shadow-sm ${highlightClasses}`}
       role="button"
       tabIndex={0}
       onKeyPress={(e) => (e.key === 'Enter') && handleItemClick()}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
@@ -311,10 +312,13 @@ function App() {
     handleToggleSearch();
   }, [handleToggleSearch]);
 
-  const handleAddDeck = useCallback(async (title: string, type: 'deck' | 'folder') => {
-    await addDeck(title, type, currentParentId);
-    setRefreshKey(k => k + 1);
-    setIsModalOpen(false);
+  const handleAddDeck = useCallback(async (title: string, type: 'deck' | 'folder'): Promise<{ success: boolean; message?: string; }> => {
+    const result = await addDeck(title, type, currentParentId);
+    if (result.success) {
+        setRefreshKey(k => k + 1);
+        setIsModalOpen(false); // Tutup modal jika berhasil
+    }
+    return result; // Kembalikan hasil agar modal dapat menangani tampilan kesalahan
   }, [addDeck, currentParentId]);
 
   const handleFabClick = useCallback(() => {
@@ -571,16 +575,6 @@ function App() {
     // Tampilan Utama: Daftar Dek atau Daftar Kartu
     if (selectedDeckId === null) {
         // Tampilan Daftar Dek
-        const containerVariants = {
-          hidden: { opacity: 0 },
-          visible: {
-            opacity: 1,
-            transition: {
-              staggerChildren: 0.07,
-              delayChildren: 0.1,
-            },
-          },
-        };
         const isSearching = searchQuery.trim() !== '';
         const isCardSearch = isSearching && searchScope === 'card';
         const effectiveOnItemClick = isSearching && !isCardSearch ? handleSearchResultClick : handleDeckItemClick;
@@ -595,11 +589,8 @@ function App() {
                         }} 
                     />
                     <StudyDirectionToggle />
-                    <motion.div
+                    <div
                         key={currentParentId ?? 'root'}
-                        variants={containerVariants}
-                        initial="hidden"
-                        animate="visible"
                     >
                         {isCardSearch ? (
                         <CardSearchResultList
@@ -618,7 +609,7 @@ function App() {
                             highlightedItemId={highlightedItemId}
                         />
                         )}
-                    </motion.div>
+                    </div>
                 </main>
                 <FloatingActionButton 
                 onAdd={handleFabClick} 

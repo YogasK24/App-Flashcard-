@@ -1,10 +1,14 @@
-
 import { create } from 'zustand';
 import { db } from '../services/databaseService';
 import { Deck, Card } from '../types';
 import { calculateSrsData, getNextDueDate } from '../services/cardService';
 
 type GameType = 'pair-it' | 'guess-it' | 'recall-it' | 'type-it';
+
+interface AddDeckResult {
+  success: boolean;
+  message?: string;
+}
 
 interface CardStoreState {
   quizDeck: Deck | null;
@@ -15,7 +19,7 @@ interface CardStoreState {
   startGame: (deckId: number, gameType: GameType, quizMode: 'sr' | 'simple' | 'blitz') => Promise<void>;
   endQuiz: () => void;
   updateCardProgress: (card: Card, feedback: 'lupa' | 'ingat') => Promise<void>;
-  addDeck: (title: string, type: 'deck' | 'folder', parentId: number | null) => Promise<void>;
+  addDeck: (title: string, type: 'deck' | 'folder', parentId: number | null) => Promise<AddDeckResult>;
   deleteDeck: (deckId: number) => Promise<void>;
   updateDeckTitle: (deckId: number, newTitle: string) => Promise<void>;
   duplicateDeck: (deckId: number) => Promise<void>;
@@ -119,7 +123,6 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
                 return acc;
             }, {} as Record<number, Card[]>);
             
-            // FIX: Explicitly type the Map to ensure correct type inference for deck objects.
             const deckMap = new Map<number, Deck>(allDecks.map(d => [d.id, { ...d }]));
             
             // Langkah 1: Hitung statistik untuk setiap dek individual
@@ -139,16 +142,19 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
             }
 
             // Langkah 2: Hitung statistik agregat secara rekursif untuk folder
+            // FIX: Bangun childrenMap dari deckMap untuk memastikan konsistensi objek.
+            // Ini mencegah bug di mana kalkulasi menggunakan data lama dari `allDecks` asli.
             const childrenMap = new Map<number | null, Deck[]>();
-            allDecks.forEach(d => {
-                const parentId = d.parentId ?? null;
-                if (!childrenMap.has(parentId)) childrenMap.set(parentId, []);
-                childrenMap.get(parentId)!.push(d);
-            });
+            for (const deck of deckMap.values()) {
+                const parentId = deck.parentId ?? null;
+                if (!childrenMap.has(parentId)) {
+                    childrenMap.set(parentId, []);
+                }
+                childrenMap.get(parentId)!.push(deck);
+            }
 
             const calculatedFolderIds = new Set<number>();
 
-            // FIX: Add an explicit return type `Deck` to the recursive function to resolve type errors.
             const calculateStatsForNode = (deckId: number): Deck => {
                 const deck = deckMap.get(deckId)!;
                 if (deck.type === 'deck') return deck;
@@ -207,20 +213,43 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
     }
   },
 
-  addDeck: async (title: string, type: 'deck' | 'folder', parentId: number | null) => {
+  addDeck: async (title: string, type: 'deck' | 'folder', parentId: number | null): Promise<AddDeckResult> => {
     try {
+      let existing: Deck | undefined;
+
+      if (parentId === null) {
+        existing = await db.decks
+          .filter(deck => deck.parentId === null && deck.title === title)
+          .first();
+      } else {
+        existing = await db.decks
+          .where('parentId').equals(parentId)
+          .and(deck => deck.title === title)
+          .first();
+      }
+
+      if (existing) {
+        return { success: false, message: `Item dengan nama "${title}" sudah ada di folder ini.` };
+      }
+
       const newDeckData: Omit<Deck, 'id'> = {
         title,
-        parentId: parentId,
+        parentId,
         type,
         cardCount: 0,
         progress: 0,
         dueCount: 0,
       };
       await db.decks.add(newDeckData as Deck);
-      // Tidak perlu re-kalkulasi karena dek/folder baru tidak memiliki kartu
+      // FIX: Selalu panggil recalculateAllDeckStats setelah menambahkan item baru
+      // untuk memastikan semua statistik (terutama folder induk) diperbarui
+      // dan mencegah inkonsistensi data.
+      await get().recalculateAllDeckStats();
+      return { success: true };
     } catch (error) {
       console.error("Gagal menambahkan dek:", error);
+      const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui.";
+      return { success: false, message: errorMessage };
     }
   },
 
@@ -476,9 +505,10 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
 
   getDecksByParentId: async (parentId: number | null): Promise<Deck[]> => {
     try {
-      const decksFromDb = parentId === null
-        ? await db.decks.filter(deck => deck.parentId === null).toArray()
-        : await db.decks.where({ parentId: parentId }).toArray();
+      if (parentId === null) {
+        return await db.decks.filter(deck => deck.parentId === null).toArray();
+      }
+      const decksFromDb = await db.decks.where('parentId').equals(parentId).toArray();
       return decksFromDb;
     } catch (error) {
       console.error(`Gagal mengambil dek berdasarkan parentId ${parentId}:`, error);
