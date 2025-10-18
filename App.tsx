@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import FilterBar from './components/FilterBar';
 import DeckList from './components/DeckList';
@@ -19,6 +19,7 @@ import CardListView from './components/CardListView';
 import EditCardModal from './components/EditCardModal';
 import ConfirmDeleteCardModal from './components/ConfirmDeleteCardModal';
 import GamePage from './pages/GamePage';
+import QuizModeSelector from './components/QuizModeSelector';
 
 
 function App() {
@@ -63,6 +64,9 @@ function App() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
+  const [isQuizModeSelectorOpen, setIsQuizModeSelectorOpen] = useState(false);
+  const [deckIdToQuiz, setDeckIdToQuiz] = useState<number | null>(null);
+  const [openingDeckId, setOpeningDeckId] = useState<number | null>(null);
   const [contextMenuState, setContextMenuState] = useState({
     isVisible: false,
     x: 0,
@@ -223,6 +227,12 @@ function App() {
       await fetchAndSetDecks(); // Muat ulang untuk memperbarui jumlah kartu
     }
   };
+  
+  const handlePlayClick = (deckId: number) => {
+    setOpeningDeckId(deckId);
+    setDeckIdToQuiz(deckId);
+    setIsQuizModeSelectorOpen(true);
+  };
 
   const MainScreen = () => {
     const containerVariants = {
@@ -256,7 +266,14 @@ function App() {
                 initial="hidden"
                 animate="visible"
               >
-                <DeckList decks={decks} loading={loading} onItemClick={handleDeckItemClick} onShowContextMenu={handleShowContextMenu} />
+                <DeckList 
+                  decks={decks} 
+                  loading={loading} 
+                  onItemClick={handleDeckItemClick} 
+                  onShowContextMenu={handleShowContextMenu} 
+                  onPlayClick={handlePlayClick} 
+                  openingDeckId={openingDeckId}
+                />
               </motion.div>
             </main>
           </>
@@ -307,6 +324,14 @@ function App() {
         .backface-hidden { backface-visibility: hidden; }
 
         /* Animasi */
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+          animation: spin 1s linear infinite;
+        }
+        
         @keyframes fade-in-slow {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -393,6 +418,19 @@ function App() {
           onConfirm={handleConfirmDeleteCard}
         />
       )}
+      
+      <AnimatePresence>
+        {isQuizModeSelectorOpen && deckIdToQuiz && (
+          <QuizModeSelector
+            deckId={deckIdToQuiz}
+            onClose={() => {
+                setIsQuizModeSelectorOpen(false);
+                setDeckIdToQuiz(null);
+                setOpeningDeckId(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

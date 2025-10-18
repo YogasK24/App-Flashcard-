@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
 import ModeItem from './ModeItem';
 import Icon from './Icon';
@@ -9,6 +10,27 @@ interface QuizModeSelectorProps {
 }
 
 type GameType = 'pair-it' | 'guess-it' | 'recall-it' | 'type-it';
+
+const backdropVariants = {
+  visible: { opacity: 1 },
+  hidden: { opacity: 0 },
+  exit: { opacity: 0 },
+};
+
+const modalVariants = {
+  hidden: { y: "100%", opacity: 0 },
+  visible: { 
+    y: 0,
+    opacity: 1,
+    transition: { type: "spring", damping: 30, stiffness: 250 }
+  },
+  exit: {
+    y: "100%",
+    opacity: 0,
+    transition: { type: "spring", damping: 30, stiffness: 250 }
+  }
+};
+
 
 const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ deckId, onClose }) => {
   const [currentMenu, setCurrentMenu] = useState<'main' | 'sub-mode' | 'sub-game'>('main');
@@ -202,17 +224,26 @@ const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ deckId, onClose }) 
   };
 
   return (
-    <div
+    <motion.div
       onClick={handleBackdropClick}
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fade-in-backdrop"
+      className="fixed inset-0 bg-black/60 flex items-end justify-center z-50"
       aria-modal="true"
       role="dialog"
       aria-labelledby="quiz-mode-title"
+      variants={backdropVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
     >
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-2xl w-full max-w-sm animate-fade-in-content">
+      <motion.div 
+        onClick={(e) => e.stopPropagation()}
+        variants={modalVariants}
+        className="bg-white dark:bg-[#2B2930] pt-3 pb-4 rounded-t-2xl shadow-2xl w-full max-w-md"
+      >
+        <div className="w-10 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-3" />
         {renderContent()}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

@@ -30,6 +30,16 @@ interface CardStoreState {
   getDeckStats: (deckId: number) => Promise<{ newCount: number; repeatCount: number; learnedCount: number; totalCount: number; }>;
 }
 
+// Fungsi bantuan untuk mengacak array (Fisher-Yates shuffle)
+const shuffleArray = <T>(array: T[]): T[] => {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+};
+
+
 export const useCardStore = create<CardStoreState>((set, get) => ({
   quizDeck: null,
   quizCards: [],
@@ -186,33 +196,46 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
       let cardsToReview: Card[] = [];
       const now = new Date();
 
-      switch (cardSet) {
-        case 'new':
-          cardsToReview = await db.cards
-            .where({ deckId: deckId, interval: 0 })
-            .toArray();
-          break;
-        case 'review_all':
-          cardsToReview = await db.cards
-            .where('deckId')
-            .equals(deckId)
-            .and(card => card.interval > 0)
-            .toArray();
-          break;
-        case 'due':
-        default:
-          cardsToReview = await db.cards
-            .where('deckId')
-            .equals(deckId)
-            .and(card => card.dueDate <= now)
-            .toArray();
-          break;
+      if (quizMode === 'simple') {
+        // Untuk 'Simple Mode', muat semua kartu, prioritaskan yang baru.
+        const allCards = await db.cards.where({ deckId }).toArray();
+        allCards.sort((a, b) => {
+            if (a.interval === 0 && b.interval !== 0) return -1; // 'a' (baru) datang duluan
+            if (a.interval !== 0 && b.interval === 0) return 1;  // 'b' (baru) datang duluan
+            return 0; // Pertahankan urutan asli untuk yang lain
+        });
+        cardsToReview = allCards;
+      } else {
+        // Logika yang ada untuk mode 'sr' dan 'blitz'
+        switch (cardSet) {
+          case 'new':
+            cardsToReview = await db.cards
+              .where({ deckId: deckId, interval: 0 })
+              .toArray();
+            break;
+          case 'review_all':
+            cardsToReview = await db.cards
+              .where('deckId')
+              .equals(deckId)
+              .and(card => card.interval > 0)
+              .toArray();
+            break;
+          case 'due':
+          default:
+            cardsToReview = await db.cards
+              .where('deckId')
+              .equals(deckId)
+              .and(card => card.dueDate <= now)
+              .toArray();
+            break;
+        }
       }
 
       if (cardsToReview.length > 0) {
-        set({ quizDeck: deck, quizCards: cardsToReview, quizMode, gameType: null });
+        const shuffledCards = shuffleArray(cardsToReview);
+        set({ quizDeck: deck, quizCards: shuffledCards, quizMode, gameType: null });
       } else {
-        console.log(`No cards to review for card set: ${cardSet}`);
+        console.log(`Tidak ada kartu untuk diulang untuk set: ${cardSet} dengan mode: ${quizMode}`);
         // Di masa depan, kita bisa menampilkan notifikasi kepada pengguna.
       }
     } catch (error) {
@@ -251,10 +274,6 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
       easeFactor,
       dueDate,
     });
-
-    set(state => ({
-      quizCards: state.quizCards.filter(c => c.id !== card.id)
-    }));
   },
 
   getDecksByParentId: async (parentId: number | null): Promise<Deck[]> => {

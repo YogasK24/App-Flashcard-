@@ -12,7 +12,7 @@ const QuizControls: React.FC<QuizControlsProps> = ({ isFlipped, onShowAnswer, on
       <div className="mt-8 w-full">
         <button
           onClick={onShowAnswer}
-          className="w-full bg-[#C8B4F3] text-[#1C1B1F] font-bold py-3 rounded-full text-lg"
+          className="w-full bg-[#C8B4F3] text-[#1C1B1F] font-bold py-3 rounded-full text-lg transition-transform duration-200 ease-in-out hover:scale-105 active:scale-95"
         >
           Tampilkan Jawaban
         </button>
@@ -20,23 +20,25 @@ const QuizControls: React.FC<QuizControlsProps> = ({ isFlipped, onShowAnswer, on
     );
   }
 
+  const baseButtonClass = "text-white font-semibold py-3 rounded-full transition-all duration-200 ease-in-out hover:scale-105 active:scale-95";
+
   return (
     <div className="mt-8 w-full grid grid-cols-3 gap-3">
       <button
         onClick={() => onRate(1)}
-        className="bg-red-500/50 hover:bg-red-500/70 text-white font-semibold py-3 rounded-full"
+        className={`${baseButtonClass} bg-red-500/80 hover:bg-red-500`}
       >
         Lagi
       </button>
       <button
         onClick={() => onRate(3)}
-        className="bg-blue-500/50 hover:bg-blue-500/70 text-white font-semibold py-3 rounded-full"
+        className={`${baseButtonClass} bg-blue-500/80 hover:bg-blue-500`}
       >
         Baik
       </button>
       <button
         onClick={() => onRate(5)}
-        className="bg-green-500/50 hover:bg-green-500/70 text-white font-semibold py-3 rounded-full"
+        className={`${baseButtonClass} bg-green-500/80 hover:bg-green-500`}
       >
         Mudah
       </button>

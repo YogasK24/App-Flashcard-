@@ -2,18 +2,16 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Deck } from '../types';
 import Icon from './Icon';
-import { useCardStore } from '../store/cardStore';
 
 interface DeckItemProps {
   deck: Deck;
   onItemClick: (deck: Deck) => void;
   onShowContextMenu: (event: React.MouseEvent, deckId: number) => void;
+  onPlayClick: (deckId: number) => void;
+  openingDeckId: number | null;
 }
 
-const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMenu }) => {
-  const { startQuiz } = useCardStore(state => ({
-    startQuiz: state.startQuiz,
-  }));
+const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMenu, onPlayClick, openingDeckId }) => {
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -21,6 +19,7 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
   };
 
   const isContainer = deck.type === 'folder';
+  const isLoading = openingDeckId === deck.id;
 
   const handleItemClick = () => {
     // Logika klik disederhanakan: komponen induk yang akan memutuskan
@@ -30,12 +29,7 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
   
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation(); // Mencegah handleItemClick terpicu juga
-    if (deck.dueCount > 0) {
-      startQuiz(deck.id, 'due');
-    } else {
-      // Seharusnya tidak terjadi karena tombol dinonaktifkan, tetapi sebagai pengaman
-      alert("Tidak ada kartu yang perlu diulang di dek ini.");
-    }
+    onPlayClick(deck.id);
   };
 
   return (
@@ -76,11 +70,15 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
       ) : (
         <button
           onClick={handlePlay}
-          disabled={deck.dueCount === 0}
+          disabled={deck.cardCount === 0 || isLoading}
           className="p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black/5 dark:hover:bg-white/10 transition-transform duration-200 ease-in-out hover:scale-105 active:scale-95"
           aria-label={`Mulai kuis untuk ${deck.title}`}
         >
-          <Icon name="play" className="w-6 h-6 text-[#C8B4F3]" />
+          {isLoading ? (
+            <Icon name="refresh" className="w-6 h-6 text-[#C8B4F3] animate-spin" />
+          ) : (
+            <Icon name="play" className="w-6 h-6 text-[#C8B4F3]" />
+          )}
         </button>
       )}
     </motion.div>

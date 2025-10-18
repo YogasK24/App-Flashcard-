@@ -9,9 +9,11 @@ interface DeckListProps {
   loading: boolean;
   onItemClick: (deck: Deck) => void;
   onShowContextMenu: (event: React.MouseEvent, deckId: number) => void;
+  onPlayClick: (deckId: number) => void;
+  openingDeckId: number | null;
 }
 
-const DeckList: React.FC<DeckListProps> = ({ decks, loading, onItemClick, onShowContextMenu }) => {
+const DeckList: React.FC<DeckListProps> = ({ decks, loading, onItemClick, onShowContextMenu, onPlayClick, openingDeckId }) => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-48">
@@ -33,7 +35,14 @@ const DeckList: React.FC<DeckListProps> = ({ decks, loading, onItemClick, onShow
   return (
     <motion.div className="space-y-2">
       {decks.map((deck) => (
-        <DeckItem key={deck.id} deck={deck} onItemClick={onItemClick} onShowContextMenu={onShowContextMenu} />
+        <DeckItem 
+          key={deck.id} 
+          deck={deck} 
+          onItemClick={onItemClick} 
+          onShowContextMenu={onShowContextMenu} 
+          onPlayClick={onPlayClick} 
+          openingDeckId={openingDeckId}
+        />
       ))}
     </motion.div>
   );

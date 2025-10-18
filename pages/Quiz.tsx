@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
 import Flashcard from '../components/Flashcard';
 import QuizHeader from '../components/QuizHeader';
@@ -12,22 +13,34 @@ const Quiz: React.FC = () => {
     endQuiz: state.endQuiz,
   }));
 
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [totalCards, setTotalCards] = useState(0);
+  const [direction, setDirection] = useState(1); // 1 for next, -1 for prev
 
-  // Atur total awal dan reset pada kuis baru
-  useEffect(() => {
-    if (quizCards.length > 0 && totalCards === 0) {
-      setTotalCards(quizCards.length);
-    }
-  }, [quizCards.length, totalCards]);
+  const totalCards = quizCards.length;
+  const currentCard = quizCards[currentCardIndex];
+  
+  const cardVariants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? 50 : -50,
+      opacity: 0,
+      scale: 0.9,
+    }),
+    center: {
+      zIndex: 1,
+      x: 0,
+      opacity: 1,
+      scale: 1,
+    },
+    exit: (direction: number) => ({
+      zIndex: 0,
+      x: direction < 0 ? 50 : -50,
+      opacity: 0,
+      scale: 0.9,
+    }),
+  };
 
-  const currentCard = quizCards[0]; // Selalu bekerja dengan kartu pertama dalam antrian
-
-  const reviewedCount = totalCards - quizCards.length;
-
-  if (!currentCard && totalCards > 0) {
-    // Ini ditampilkan ketika quizCards kosong tetapi kuis telah dimulai
+  if (currentCardIndex >= totalCards && totalCards > 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-[#C8C5CA] p-4">
         <Icon name="folder" className="w-24 h-24 mb-6 opacity-50" />
@@ -44,7 +57,20 @@ const Quiz: React.FC = () => {
   }
 
   if (!currentCard) {
-    return null; // Atau tampilkan state loading/kosong jika kuis belum dimulai dengan benar
+    // Ini terjadi jika kuis dimulai tanpa kartu, yang seharusnya dicegah oleh store.
+    // Tampilkan pesan fallback untuk keamanan.
+    return (
+        <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-[#C8C5CA] p-4">
+             <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Tidak Ada Kartu</h2>
+             <p className="mb-6">Tidak ada kartu yang perlu diulang dalam dek ini saat ini.</p>
+             <button
+                onClick={endQuiz}
+                className="bg-[#C8B4F3] text-[#1C1B1F] font-bold py-3 px-8 rounded-full text-lg"
+             >
+                Kembali ke Dek
+            </button>
+        </div>
+    );
   }
 
   const handleShowAnswer = () => {
@@ -52,28 +78,50 @@ const Quiz: React.FC = () => {
   };
 
   const handleRate = async (quality: number) => {
+    setDirection(1); // Atur arah animasi ke 'next'
     await updateCardSrs(currentCard, quality);
-    // Setelah updateCardSrs, store diperbarui, quizCards menyusut,
-    // dan komponen ini dirender ulang dengan kartu berikutnya di indeks 0.
-    // Kita hanya perlu mereset state flip untuk kartu baru.
+    
+    // Balik kartu kembali sebelum transisi ke kartu berikutnya
     setIsFlipped(false);
+    
+    // Beri sedikit jeda agar animasi flip bisa mulai sebelum kartu bergeser
+    setTimeout(() => {
+        setCurrentCardIndex(prevIndex => prevIndex + 1);
+    }, 150);
   };
 
   return (
-    <div className="flex flex-col h-full p-4">
-      {/* Tampilkan jumlah kartu yang diulas dari total */}
-      <QuizHeader currentCardIndex={reviewedCount} totalCards={totalCards} />
-      <div className="flex-grow flex flex-col items-center justify-center">
-        <Flashcard
-          front={currentCard.front}
-          back={currentCard.back}
-          isFlipped={isFlipped}
-        />
-        <QuizControls
-          isFlipped={isFlipped}
-          onShowAnswer={handleShowAnswer}
-          onRate={handleRate}
-        />
+    <div className="flex flex-col h-full p-4 overflow-hidden">
+      <QuizHeader currentCardIndex={currentCardIndex + 1} totalCards={totalCards} />
+      <div className="flex-grow flex items-center justify-center relative">
+        <AnimatePresence initial={false} custom={direction}>
+          <motion.div
+            key={currentCardIndex}
+            custom={direction}
+            variants={cardVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{
+              x: { type: 'spring', stiffness: 300, damping: 30 },
+              opacity: { duration: 0.2 },
+            }}
+            className="absolute w-full h-64"
+          >
+            <Flashcard
+              front={currentCard.front}
+              back={currentCard.back}
+              isFlipped={isFlipped}
+            />
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      <div className="flex-shrink-0">
+         <QuizControls
+            isFlipped={isFlipped}
+            onShowAnswer={handleShowAnswer}
+            onRate={handleRate}
+          />
       </div>
     </div>
   );
