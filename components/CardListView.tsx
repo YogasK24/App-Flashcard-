@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
 import { Card, Deck } from '../types';
 import Icon from './Icon';
@@ -35,6 +36,17 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
     fetchData();
   }, [fetchData, refreshKey]);
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.05, // Sedikit lebih cepat untuk kartu
+        delayChildren: 0.1,
+      },
+    },
+  };
+
   return (
     <div className="flex flex-col h-full animate-fade-in-slow">
       <header className="p-4 flex items-center space-x-4">
@@ -53,7 +65,12 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
             <p className="mt-1">Ayo buat yang pertama menggunakan tombol di bawah!</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <motion.div
+            className="space-y-3"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
             {cards.map(card => (
               <CardItem 
                 key={card.id} 
@@ -62,7 +79,7 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
                 onDelete={() => onDeleteCard(card)}
               />
             ))}
-          </div>
+          </motion.div>
         )}
       </main>
     </div>

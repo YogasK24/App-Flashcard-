@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Card } from '../types';
 import Icon from './Icon';
 
@@ -9,8 +10,16 @@ interface CardItemProps {
 }
 
 const CardItem: React.FC<CardItemProps> = ({ card, onEdit, onDelete }) => {
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 },
+  };
+
   return (
-    <div className="bg-[#2B2930] p-4 rounded-lg flex space-x-4">
+    <motion.div 
+      variants={itemVariants}
+      className="bg-[#2B2930] p-4 rounded-lg flex space-x-4"
+    >
       <div className="flex-grow flex flex-col space-y-2">
         <div>
           <h4 className="text-xs text-[#948F99] mb-1">DEPAN</h4>
@@ -30,7 +39,7 @@ const CardItem: React.FC<CardItemProps> = ({ card, onEdit, onDelete }) => {
           <Icon name="trash" className="w-5 h-5 text-red-400/80" />
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

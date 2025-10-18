@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Deck } from '../types';
 import Icon from './Icon';
 import { useCardStore } from '../store/cardStore';
@@ -13,6 +14,11 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
   const { startQuiz } = useCardStore(state => ({
     startQuiz: state.startQuiz,
   }));
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 },
+  };
 
   const isContainer = deck.type === 'folder';
 
@@ -33,7 +39,8 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
   };
 
   return (
-    <div 
+    <motion.div 
+      variants={itemVariants}
       onClick={handleItemClick}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -76,7 +83,7 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
           <Icon name="play" className="w-6 h-6 text-[#C8B4F3]" />
         </button>
       )}
-    </div>
+    </motion.div>
   );
 };
 

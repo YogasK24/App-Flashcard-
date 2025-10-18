@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Deck } from '../types';
 import { useCardStore } from '../store/cardStore';
 
@@ -29,7 +30,13 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ currentDeckId, onNavigate }) 
   }
   
   return (
-    <div key={currentDeckId ?? 'root'} className="h-5 pb-2 animate-fade-in-slow">
+    <motion.div 
+      key={currentDeckId ?? 'root'} 
+      className="h-5 pb-2"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+    >
         {path.length > 0 && (
             <nav aria-label="breadcrumb" className="text-sm text-[#C8C5CA] flex items-center flex-wrap h-full">
             <button onClick={() => onNavigate(null)} className="hover:underline">
@@ -51,7 +58,7 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ currentDeckId, onNavigate }) 
             ))}
             </nav>
         )}
-    </div>
+    </motion.div>
   );
 };
 

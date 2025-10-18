@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import Header from './components/Header';
 import FilterBar from './components/FilterBar';
 import DeckList from './components/DeckList';
@@ -212,51 +213,69 @@ function App() {
     }
   };
 
-  const MainScreen = () => (
-    <>
-       {selectedDeckId === null ? (
-        <>
-          <Header />
-          <main className="p-4 space-y-4">
-            <Breadcrumbs 
-              currentDeckId={currentParentId} 
-              onNavigate={(id) => {
-                setCurrentParentId(id);
-                setSelectedDeckId(null);
-              }} 
-            />
-            <FilterBar />
-            <div key={currentParentId ?? 'root'} className="animate-fade-in-slow">
-              <DeckList decks={decks} loading={loading} onItemClick={handleDeckItemClick} onShowContextMenu={handleShowContextMenu} />
-            </div>
-          </main>
-        </>
-      ) : (
-        <CardListView 
-          deckId={selectedDeckId} 
-          onBack={() => setSelectedDeckId(null)} 
-          refreshKey={refreshKey}
-          onEditCard={handleEditCard}
-          onDeleteCard={handleDeleteCard}
-        />
-      )}
+  const MainScreen = () => {
+    const containerVariants = {
+      hidden: { opacity: 0 },
+      visible: {
+        opacity: 1,
+        transition: {
+          staggerChildren: 0.07, // Jeda 70ms antar item
+          delayChildren: 0.1,    // Penundaan awal 100ms
+        },
+      },
+    };
 
-      <FloatingActionButton 
-        onAdd={handleFabClick} 
-        text={selectedDeckId !== null ? 'Tambah Kartu' : undefined}
-      />
-      <AddDeckModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onAdd={handleAddDeck}
-      />
-      <AddCardModal
-        isOpen={isAddCardModalOpen}
-        onClose={() => setIsAddCardModalOpen(false)}
-        onAddCard={handleAddCard}
-      />
-    </>
-  );
+    return (
+      <>
+        {selectedDeckId === null ? (
+          <>
+            <Header />
+            <main className="p-4 space-y-4">
+              <Breadcrumbs 
+                currentDeckId={currentParentId} 
+                onNavigate={(id) => {
+                  setCurrentParentId(id);
+                  setSelectedDeckId(null);
+                }} 
+              />
+              <FilterBar />
+              <motion.div
+                key={currentParentId ?? 'root'}
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+              >
+                <DeckList decks={decks} loading={loading} onItemClick={handleDeckItemClick} onShowContextMenu={handleShowContextMenu} />
+              </motion.div>
+            </main>
+          </>
+        ) : (
+          <CardListView 
+            deckId={selectedDeckId} 
+            onBack={() => setSelectedDeckId(null)} 
+            refreshKey={refreshKey}
+            onEditCard={handleEditCard}
+            onDeleteCard={handleDeleteCard}
+          />
+        )}
+
+        <FloatingActionButton 
+          onAdd={handleFabClick} 
+          text={selectedDeckId !== null ? 'Tambah Kartu' : undefined}
+        />
+        <AddDeckModal 
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onAdd={handleAddDeck}
+        />
+        <AddCardModal
+          isOpen={isAddCardModalOpen}
+          onClose={() => setIsAddCardModalOpen(false)}
+          onAddCard={handleAddCard}
+        />
+      </>
+    );
+  };
 
   return (
     <div className="bg-[#1C1B1F] min-h-screen text-[#E6E1E5] font-sans relative">

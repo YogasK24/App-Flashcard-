@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Deck } from '../types';
 import DeckItem from './DeckItem';
 import Icon from './Icon';
@@ -30,11 +31,11 @@ const DeckList: React.FC<DeckListProps> = ({ decks, loading, onItemClick, onShow
   }
 
   return (
-    <div className="space-y-3">
+    <motion.div className="space-y-3">
       {decks.map((deck) => (
         <DeckItem key={deck.id} deck={deck} onItemClick={onItemClick} onShowContextMenu={onShowContextMenu} />
       ))}
-    </div>
+    </motion.div>
   );
 };
 
