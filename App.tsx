@@ -14,7 +14,6 @@ import ContextMenu from './components/ContextMenu';
 import ConfirmDeleteModal from './components/ConfirmDeleteModal';
 import MoveDeckModal from './components/MoveDeckModal';
 import EditDeckModal from './components/EditDeckModal';
-import AddCardModal from './components/AddCardModal';
 import CardListView from './components/CardListView';
 import EditCardModal from './components/EditCardModal';
 import ConfirmDeleteCardModal from './components/ConfirmDeleteCardModal';
@@ -34,7 +33,6 @@ function App() {
     updateDeckTitle,
     duplicateDeck,
     getDeckById,
-    addCardToDeck,
     updateCard,
     deleteCard,
   } = useCardStore(state => ({
@@ -48,7 +46,6 @@ function App() {
     updateDeckTitle: state.updateDeckTitle,
     duplicateDeck: state.duplicateDeck,
     getDeckById: state.getDeckById,
-    addCardToDeck: state.addCardToDeck,
     updateCard: state.updateCard,
     deleteCard: state.deleteCard,
   }));
@@ -63,7 +60,6 @@ function App() {
   const [filter, setFilter] = useState<'kanji' | 'katakana'>('kanji');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
   const [isQuizModeSelectorOpen, setIsQuizModeSelectorOpen] = useState(false);
   const [deckIdToQuiz, setDeckIdToQuiz] = useState<number | null>(null);
   const [openingDeckId, setOpeningDeckId] = useState<number | null>(null);
@@ -117,21 +113,8 @@ function App() {
     setIsModalOpen(false);
   };
 
-  const handleAddCard = async (front: string, back: string) => {
-    if (selectedDeckId) {
-        await addCardToDeck(selectedDeckId, front, back);
-        setIsAddCardModalOpen(false);
-        setRefreshKey(k => k + 1);
-        await fetchAndSetDecks(); // Muat ulang untuk memperbarui jumlah kartu
-    }
-  };
-  
   const handleFabClick = () => {
-    if (selectedDeckId !== null) {
-      setIsAddCardModalOpen(true);
-    } else {
-      setIsModalOpen(true);
-    }
+    setIsModalOpen(true);
   };
 
   const handleShowContextMenu = (event: React.MouseEvent, deckId: number) => {
@@ -276,6 +259,14 @@ function App() {
                 />
               </motion.div>
             </main>
+            <FloatingActionButton 
+              onAdd={handleFabClick} 
+            />
+            <AddDeckModal 
+              isOpen={isModalOpen}
+              onClose={() => setIsModalOpen(false)}
+              onAdd={handleAddDeck}
+            />
           </>
         ) : (
           <CardListView 
@@ -286,21 +277,6 @@ function App() {
             onDeleteCard={handleDeleteCard}
           />
         )}
-
-        <FloatingActionButton 
-          onAdd={handleFabClick} 
-          text={selectedDeckId !== null ? 'Tambah Kartu' : undefined}
-        />
-        <AddDeckModal 
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onAdd={handleAddDeck}
-        />
-        <AddCardModal
-          isOpen={isAddCardModalOpen}
-          onClose={() => setIsAddCardModalOpen(false)}
-          onAddCard={handleAddCard}
-        />
       </>
     );
   };

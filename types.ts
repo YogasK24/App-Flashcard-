@@ -14,6 +14,9 @@ export interface Card {
   deckId: number;
   front: string;
   back: string;
+  transcription?: string;
+  example?: string;
+  imageUrl?: string;
   dueDate: Date;
   interval: number;
   easeFactor: number;

@@ -4,6 +4,9 @@ import { useCardStore } from '../store/cardStore';
 import { Card, Deck } from '../types';
 import Icon from './Icon';
 import CardItem from './CardItem';
+import FloatingActionButton from './FloatingActionButton';
+import AddCardModal from './AddCardModal';
+import { FormCardData } from './AddEditCardForm';
 
 interface CardListViewProps {
   deckId: number;
@@ -14,14 +17,16 @@ interface CardListViewProps {
 }
 
 const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey, onEditCard, onDeleteCard }) => {
-  const { getDeckById, getCardsByDeckId } = useCardStore(state => ({
+  const { getDeckById, getCardsByDeckId, addCardToDeck } = useCardStore(state => ({
     getDeckById: state.getDeckById,
     getCardsByDeckId: state.getCardsByDeckId,
+    addCardToDeck: state.addCardToDeck,
   }));
 
   const [deck, setDeck] = useState<Deck | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -36,6 +41,22 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
     fetchData();
   }, [fetchData, refreshKey]);
 
+  const handleAddCard = async (cardsToAdd: Omit<FormCardData, 'key' | 'showTranscription' | 'showExample' | 'showImage'>[]) => {
+    for (const card of cardsToAdd) {
+        // TODO: Implement image upload and get URL
+        await addCardToDeck(
+            deckId,
+            card.front,
+            card.back,
+            card.transcription || undefined,
+            card.example || undefined,
+            undefined // imageUrl
+        );
+    }
+    setIsAddCardModalOpen(false);
+    await fetchData(); // Muat ulang daftar kartu
+  };
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -48,14 +69,14 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
   };
 
   return (
-    <div className="flex flex-col h-full animate-fade-in-slow">
+    <div className="flex flex-col h-full animate-fade-in-slow relative">
       <header className="p-4 flex items-center space-x-4">
         <button onClick={onBack} className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10" aria-label="Kembali">
           <Icon name="chevronLeft" className="w-6 h-6" />
         </button>
         <h2 className="text-xl font-semibold">{deck?.title || 'Memuat...'}</h2>
       </header>
-      <main className="flex-grow p-4 space-y-4 overflow-y-auto">
+      <main className="flex-grow p-4 space-y-4 overflow-y-auto pb-20">
         {loading ? (
           <div className="text-center text-gray-500 dark:text-[#C8C5CA]">Memuat kartu...</div>
         ) : cards.length === 0 ? (
@@ -82,6 +103,15 @@ const CardListView: React.FC<CardListViewProps> = ({ deckId, onBack, refreshKey,
           </motion.div>
         )}
       </main>
+      <FloatingActionButton 
+        onAdd={() => setIsAddCardModalOpen(true)}
+        text="Tambah Kartu"
+      />
+      <AddCardModal
+        isOpen={isAddCardModalOpen}
+        onClose={() => setIsAddCardModalOpen(false)}
+        onAddCard={handleAddCard}
+      />
     </div>
   );
 };
