@@ -167,17 +167,25 @@ const ImportMappingModal: React.FC<ImportMappingModalProps> = ({ isOpen, onClose
 
                 <div>
                     <h3 className="text-sm font-semibold text-gray-500 dark:text-[#C8C5CA] pt-2">Pratinjau Data (Hingga 10 baris pertama)</h3>
-                    <div className="max-h-48 overflow-auto bg-gray-100 dark:bg-[#1C1B1F] p-2 rounded-lg text-xs mt-2 border border-gray-300 dark:border-[#645F73]">
-                        <table className="w-full table-auto">
-                            <thead className="text-left text-gray-500 dark:text-[#948F99] sticky top-0 bg-gray-100 dark:bg-[#1C1B1F]">
+                    <div className="w-full overflow-x-auto border border-gray-600 dark:border-gray-300 rounded-lg max-h-48 mt-2">
+                        <table className="min-w-full divide-y divide-gray-700 dark:divide-gray-300">
+                            <thead className="bg-gray-700 dark:bg-gray-100 sticky top-0">
                                 <tr>
-                                    {headers.map(h => <th key={h} className="p-2 font-semibold truncate">{h}</th>)}
+                                    {headers.map((header) => (
+                                        <th key={header} className="px-4 py-2 text-left text-xs font-medium text-gray-300 dark:text-gray-700 uppercase tracking-wider">
+                                            {header}
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                            <tbody className="bg-gray-800 dark:bg-white divide-y divide-gray-700 dark:divide-gray-300">
                                 {previewData.map((row, index) => (
                                     <tr key={index}>
-                                        {headers.map((_h, cellIndex) => <td key={cellIndex} className="p-2 truncate max-w-[20ch]">{row[cellIndex]}</td>)}
+                                        {headers.map((_h, cellIndex) => (
+                                            <td key={cellIndex} className="px-4 py-2 text-sm text-gray-300 dark:text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">
+                                                {row[cellIndex]}
+                                            </td>
+                                        ))}
                                     </tr>
                                 ))}
                             </tbody>

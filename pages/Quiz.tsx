@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
 import { useThemeStore } from '../store/themeStore';
@@ -6,9 +6,9 @@ import { useQuizTimer } from '../hooks/useQuizTimer';
 import Flashcard from '../components/Flashcard';
 import GameHeader from '../components/GameHeader';
 import QuizControls from '../components/QuizControls';
-import Icon from '../components/Icon';
 import TimerSettingsModal from '../components/TimerSettingsModal';
 import FontSizeModal from '../components/FontSizeModal';
+import SessionCompleteModal from '../components/SessionCompleteModal';
 
 const Quiz: React.FC = () => {
   const { quizCards, updateCardProgress, endQuiz, quizMode, quizDeck } = useCardStore(state => ({
@@ -26,10 +26,18 @@ const Quiz: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false); // Mencegah klik/aksi ganda
   const [isTimerSettingsModalOpen, setIsTimerSettingsModalOpen] = useState(false);
   const [isFontSizeModalOpen, setIsFontSizeModalOpen] = useState(false);
+  const [isSessionComplete, setIsSessionComplete] = useState(false);
 
   const totalCards = quizCards.length;
   const currentCard = quizCards[currentCardIndex];
   
+  useEffect(() => {
+    // Memeriksa apakah kuis selesai.
+    if (totalCards > 0 && currentCardIndex >= totalCards) {
+      setIsSessionComplete(true);
+    }
+  }, [currentCardIndex, totalCards]);
+
   const cardVariants = {
     enter: (direction: number) => ({
       x: direction > 0 ? 50 : -50,
@@ -58,52 +66,16 @@ const Quiz: React.FC = () => {
       default: return 'Kuis';
     }
   };
-
-  if (currentCardIndex >= totalCards && totalCards > 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-[#C8C5CA] p-4">
-        <Icon name="folder" className="w-24 h-24 mb-6 opacity-50" />
-        <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Kuis Selesai!</h2>
-        <p className="mb-6">Kerja bagus! Semua {totalCards} kartu yang perlu diulang telah diselesaikan.</p>
-        <button
-          onClick={endQuiz}
-          className="bg-[#C8B4F3] text-[#1C1B1F] font-bold py-3 px-8 rounded-full text-lg"
-        >
-          Kembali ke Dek
-        </button>
-      </div>
-    );
-  }
-
-  if (!currentCard) {
-    // Ini terjadi jika kuis dimulai tanpa kartu, yang seharusnya dicegah oleh store.
-    // Tampilkan pesan fallback untuk keamanan.
-    return (
-        <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-[#C8C5CA] p-4">
-             <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Tidak Ada Kartu</h2>
-             <p className="mb-6">Tidak ada kartu yang perlu diulang dalam dek ini saat ini.</p>
-             <button
-                onClick={endQuiz}
-                className="bg-[#C8B4F3] text-[#1C1B1F] font-bold py-3 px-8 rounded-full text-lg"
-             >
-                Kembali ke Dek
-            </button>
-        </div>
-    );
-  }
-
+  
   const handleTimeUp = () => {
     if (isProcessing) return;
 
     if (!isFlipped) {
       setIsFlipped(true);
-      // Tunggu animasi balik kartu (500ms) + sedikit waktu lihat (500ms)
-      // TTS akan dipicu oleh useEffect di Flashcard saat isFlipped berubah.
       setTimeout(() => {
-        handleRate('lupa'); // Anggap sebagai jawaban 'Lupa'
+        handleRate('lupa');
       }, 1000);
     } else {
-      // Jika sudah dibalik, langsung nilai
       handleRate('lupa');
     }
   };
@@ -123,40 +95,52 @@ const Quiz: React.FC = () => {
   };
 
   const handleRate = async (feedback: 'lupa' | 'ingat') => {
-    if (isProcessing) return;
+    if (isProcessing || !currentCard) return;
     setIsProcessing(true);
     setDirection(1);
 
-    if (quizMode === 'sr') {
-      await updateCardProgress(currentCard, feedback);
-    }
-
-    setIsFlipped(false);
+    await updateCardProgress(currentCard, feedback);
+    
+    setIsFlipped(false); // Sembunyikan bagian belakang kartu segera
 
     setTimeout(() => {
-      if (quizMode === 'sr' && feedback === 'lupa') {
-        // Jika hanya ada satu kartu tersisa dan dijawab salah,
-        // kuis harus berakhir untuk menghindari perulangan tak terbatas.
-        // Kartu tersebut akan muncul di sesi berikutnya.
-        if (quizCards.length <= 1) {
-          setCurrentCardIndex(prevIndex => prevIndex + 1);
+        // Dalam mode SR dengan feedback 'lupa', kartu diantrekan ulang oleh store.
+        // Kita tidak menaikkan indeks untuk memungkinkan dek yang diacak ulang menampilkan kartu berikutnya pada indeks yang sama.
+        // Pengecualian: jika ini satu-satunya kartu yang tersisa, kita harus maju untuk mengakhiri sesi.
+        const shouldAdvance = !(quizMode === 'sr' && feedback === 'lupa' && quizCards.length > 1);
+        
+        if (shouldAdvance) {
+            setCurrentCardIndex(prevIndex => prevIndex + 1);
         }
-        // Jika tidak, jangan naikkan indeks. Biarkan store menyusun ulang
-        // dan re-render akan menampilkan kartu berikutnya di indeks yang sama.
-      } else {
-        // Untuk 'ingat' di mode apa pun, atau 'lupa' di mode non-SR, lanjutkan ke kartu berikutnya.
-        setCurrentCardIndex(prevIndex => prevIndex + 1);
-      }
-      
-      setIsProcessing(false);
-    }, 150);
+        
+        setIsProcessing(false);
+    }, 150); // Penundaan memungkinkan kartu untuk membalik sebelum berubah
   };
+
+  if (isSessionComplete) {
+    return <SessionCompleteModal isOpen={true} onExit={endQuiz} />;
+  }
+
+  if (!currentCard) {
+    return (
+        <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-[#C8C5CA] p-4">
+             <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Tidak Ada Kartu</h2>
+             <p className="mb-6">Tidak ada kartu yang perlu diulang dalam dek ini saat ini.</p>
+             <button
+                onClick={endQuiz}
+                className="bg-[#C8B4F3] text-[#1C1B1F] font-bold py-3 px-8 rounded-full text-lg"
+             >
+                Kembali ke Dek
+            </button>
+        </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <GameHeader
         modeTitle={getModeTitle()}
-        currentIndex={currentCardIndex + 1}
+        currentIndex={Math.min(currentCardIndex + 1, totalCards)}
         totalCards={totalCards}
         progress={quizDeck?.progress}
         boxInfo={quizMode === 'sr' && currentCard ? `Box ${currentCard.repetitions + 1}` : undefined}
@@ -206,6 +190,10 @@ const Quiz: React.FC = () => {
       <FontSizeModal
         isOpen={isFontSizeModalOpen}
         onClose={() => setIsFontSizeModalOpen(false)}
+      />
+      <SessionCompleteModal
+        isOpen={isSessionComplete}
+        onExit={endQuiz}
       />
     </div>
   );

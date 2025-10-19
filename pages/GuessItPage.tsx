@@ -7,6 +7,7 @@ import Icon from '../components/Icon';
 import GameHeader from '../components/GameHeader';
 import { useQuizTimer } from '../hooks/useQuizTimer';
 import CircularTimer from '../components/CircularTimer';
+import SessionCompleteModal from '../components/SessionCompleteModal';
 
 const GuessItPage: React.FC = () => {
   const { quizCards, updateCardProgress, endQuiz, quizMode } = useCardStore(state => ({
@@ -24,11 +25,18 @@ const GuessItPage: React.FC = () => {
   const [isAnswered, setIsAnswered] = useState(false);
   const [direction, setDirection] = useState(1);
   const [notEnoughCards, setNotEnoughCards] = useState(false);
+  const [isSessionComplete, setIsSessionComplete] = useState(false);
   
   const questionField = studyDirection === 'kanji' ? 'front' : 'back';
   const answerField = studyDirection === 'kanji' ? 'back' : 'front';
 
   const currentCard = useMemo(() => quizCards[currentCardIndex], [quizCards, currentCardIndex]);
+
+  useEffect(() => {
+    if (quizCards.length > 0 && currentCardIndex >= quizCards.length) {
+      setIsSessionComplete(true);
+    }
+  }, [currentCardIndex, quizCards.length]);
 
   const handleTimeUp = () => {
     if (isAnswered) return;
@@ -103,6 +111,10 @@ const GuessItPage: React.FC = () => {
       opacity: 0,
     }),
   };
+  
+  if (isSessionComplete) {
+    return <SessionCompleteModal isOpen={true} onExit={endQuiz} />;
+  }
 
   if (notEnoughCards) {
     return (
@@ -120,24 +132,6 @@ const GuessItPage: React.FC = () => {
     );
   }
   
-  if (currentCardIndex >= quizCards.length && quizCards.length > 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-4 animate-fade-in-slow">
-        <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1, transition: { type: 'spring' } }}>
-          <Icon name="sparkle" className="w-24 h-24 mb-6 text-yellow-400" />
-        </motion.div>
-        <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Permainan Selesai!</h2>
-        <p className="text-gray-500 dark:text-[#C8C5CA] mb-6">Kerja bagus! Anda telah menyelesaikan semua kartu.</p>
-        <button
-          onClick={endQuiz}
-          className="bg-[#C8B4F3] text-[#1C1B1F] font-bold py-3 px-8 rounded-full text-lg"
-        >
-          Kembali ke Dek
-        </button>
-      </div>
-    );
-  }
-
   if (!currentCard) {
     return (
         <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-[#C8C5CA] p-4">
@@ -152,7 +146,7 @@ const GuessItPage: React.FC = () => {
     <div className="flex flex-col h-full p-4 overflow-hidden">
       <GameHeader 
         modeTitle="Tebak Jawaban"
-        currentIndex={currentCardIndex + 1}
+        currentIndex={Math.min(currentCardIndex + 1, quizCards.length)}
         totalCards={quizCards.length}
         progress={progressPercentage}
         boxInfo={quizMode === 'sr' && currentCard ? `Box ${currentCard.repetitions + 1}` : undefined}
@@ -161,41 +155,43 @@ const GuessItPage: React.FC = () => {
       <main className="flex-grow flex flex-col justify-center items-center">
         <div className="w-full h-full flex flex-col justify-between">
           <AnimatePresence initial={false} custom={direction} mode="wait">
-            <motion.div
-              key={currentCard.id}
-              custom={direction}
-              variants={cardVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{
-                x: { type: 'spring', stiffness: 300, damping: 30 },
-                opacity: { duration: 0.2 },
-              }}
-              className="w-full flex-grow flex items-center justify-center"
-            >
-              <div className="relative w-full max-w-sm h-48 flex items-center justify-center">
-                {quizMode === 'blitz' && (
-                  <CircularTimer
-                    duration={timerDuration}
-                    timeLeft={timeLeft}
-                    size={220} // Sedikit lebih besar dari tinggi kartu (h-48 adalah 192px)
-                    strokeWidth={8}
-                    className="absolute inset-0 m-auto pointer-events-none z-0"
-                  />
-                )}
-                <div className="relative z-10 bg-gray-200 dark:bg-[#4A4458] rounded-xl flex items-center justify-center p-6 w-full h-48">
-                  <p className="text-4xl md:text-5xl font-bold text-center text-gray-900 dark:text-[#E6E1E5]">
-                    {currentCard[questionField]}
-                  </p>
+            {currentCard && (
+              <motion.div
+                key={currentCard.id}
+                custom={direction}
+                variants={cardVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{
+                  x: { type: 'spring', stiffness: 300, damping: 30 },
+                  opacity: { duration: 0.2 },
+                }}
+                className="w-full flex-grow flex items-center justify-center"
+              >
+                <div className="relative w-full max-w-sm h-48 flex items-center justify-center">
+                  {quizMode === 'blitz' && (
+                    <CircularTimer
+                      duration={timerDuration}
+                      timeLeft={timeLeft}
+                      size={220} // Sedikit lebih besar dari tinggi kartu (h-48 adalah 192px)
+                      strokeWidth={8}
+                      className="absolute inset-0 m-auto pointer-events-none z-0"
+                    />
+                  )}
+                  <div className="relative z-10 bg-gray-200 dark:bg-[#4A4458] rounded-xl flex items-center justify-center p-6 w-full h-48">
+                    <p className="text-4xl md:text-5xl font-bold text-center text-gray-900 dark:text-[#E6E1E5]">
+                      {currentCard[questionField]}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            )}
           </AnimatePresence>
           
           <div className="grid grid-cols-1 md:grid-cols-2 mt-2">
             {options.map((option, index) => {
-              const isCorrectAnswer = option === currentCard[answerField];
+              const isCorrectAnswer = currentCard && option === currentCard[answerField];
               
               const baseClasses = "w-full p-4 m-2 rounded-xl shadow-md border transition-all duration-300 text-lg font-semibold";
               
@@ -226,6 +222,10 @@ const GuessItPage: React.FC = () => {
           </div>
         </div>
       </main>
+      <SessionCompleteModal
+        isOpen={isSessionComplete}
+        onExit={endQuiz}
+      />
     </div>
   );
 };

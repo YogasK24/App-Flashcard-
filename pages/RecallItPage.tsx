@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
-import Icon from '../components/Icon';
 import Flashcard from '../components/Flashcard';
 import QuizControls from '../components/QuizControls';
 import { useQuizTimer } from '../hooks/useQuizTimer';
 import GameHeader from '../components/GameHeader';
+import SessionCompleteModal from '../components/SessionCompleteModal';
 
 const RECALL_TIMER_DURATION = 600; // 10 menit, waktu yang cukup.
 
@@ -23,14 +23,21 @@ const RecallItPage: React.FC = () => {
   const [direction, setDirection] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [timeSpent, setTimeSpent] = useState<number | null>(null);
+  const [isSessionComplete, setIsSessionComplete] = useState(false);
 
   const totalCards = quizCards.length;
   const currentCard = quizCards[currentCardIndex];
+  
+  useEffect(() => {
+    if (totalCards > 0 && currentCardIndex >= totalCards) {
+      setIsSessionComplete(true);
+    }
+  }, [currentCardIndex, totalCards]);
 
   const { timeLeft, stopTimer } = useQuizTimer({
     key: currentCard?.id,
     initialTime: RECALL_TIMER_DURATION,
-    onTimeUp: () => {}, // Tidak digunakan, timer akan dihentikan secara manual
+    onTimeUp: () => {}, // Tidak digunakan, timer dihentikan secara manual
   });
 
   // Reset timeSpent saat kartu berubah
@@ -66,7 +73,7 @@ const RecallItPage: React.FC = () => {
   };
 
   const handleFeedback = async (feedback: 'lupa' | 'ingat') => {
-    if (isProcessing) return;
+    if (isProcessing || !currentCard) return;
     setIsProcessing(true);
     setDirection(1);
 
@@ -76,43 +83,21 @@ const RecallItPage: React.FC = () => {
 
     await updateCardProgress(currentCard, feedback);
 
-    // Setelah pembaruan, lanjutkan ke kartu berikutnya dan reset state.
-    // Timer akan di-reset secara otomatis oleh hook `useQuizTimer` karena `key` (currentCard.id) berubah.
+    setIsFlipped(false);
+
     setTimeout(() => {
-      setIsFlipped(false);
-      
-      if (quizMode === 'sr' && feedback === 'lupa') {
-        if (quizCards.length <= 1) {
+      const shouldAdvance = !(quizMode === 'sr' && feedback === 'lupa' && quizCards.length > 1);
+      if (shouldAdvance) {
           setCurrentCardIndex(prevIndex => prevIndex + 1);
-        }
-        // Jika tidak, jangan naikkan indeks. Biarkan store menyusun ulang
-        // dan re-render akan menampilkan kartu berikutnya di indeks yang sama.
-      } else {
-        setCurrentCardIndex(prevIndex => prevIndex + 1);
       }
-      
       setIsProcessing(false);
     }, 150);
   };
-
-  if (currentCardIndex >= totalCards && totalCards > 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-4 animate-fade-in-slow">
-        <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1, transition: { type: 'spring' } }}>
-          <Icon name="sparkle" className="w-24 h-24 mb-6 text-yellow-400" />
-        </motion.div>
-        <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Sesi Selesai!</h2>
-        <p className="mb-6 text-gray-500 dark:text-[#C8C5CA]">Kerja bagus! Anda telah menyelesaikan semua kartu.</p>
-        <button
-          onClick={endQuiz}
-          className="bg-[#C8B4F3] text-[#1C1B1F] font-bold py-3 px-8 rounded-full text-lg"
-        >
-          Kembali ke Dek
-        </button>
-      </div>
-    );
+  
+  if (isSessionComplete) {
+    return <SessionCompleteModal isOpen={true} onExit={endQuiz} />;
   }
-
+  
   if (!currentCard) {
     return (
         <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-[#C8C5CA] p-4">
@@ -134,7 +119,7 @@ const RecallItPage: React.FC = () => {
     <div className="flex flex-col h-full p-4 overflow-hidden">
       <GameHeader
         modeTitle="Ingat Kembali"
-        currentIndex={currentCardIndex + 1}
+        currentIndex={Math.min(currentCardIndex + 1, totalCards)}
         totalCards={totalCards}
         progress={progressPercentage}
         boxInfo={quizMode === 'sr' && currentCard ? `Box ${currentCard.repetitions + 1}` : undefined}
@@ -142,25 +127,27 @@ const RecallItPage: React.FC = () => {
       
       <main className="flex-grow flex items-center justify-center relative">
         <AnimatePresence initial={false} custom={direction} mode="wait">
-          <motion.div
-            key={currentCard.id}
-            custom={direction}
-            variants={cardVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{
-              x: { type: 'spring', stiffness: 300, damping: 30 },
-              opacity: { duration: 0.2 },
-            }}
-            className="absolute w-full h-80"
-          >
-            <Flashcard
-              card={currentCard}
-              isFlipped={isFlipped}
-              quizMode={quizMode}
-            />
-          </motion.div>
+          {currentCard && (
+            <motion.div
+              key={currentCard.id}
+              custom={direction}
+              variants={cardVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: 'spring', stiffness: 300, damping: 30 },
+                opacity: { duration: 0.2 },
+              }}
+              className="absolute w-full h-80"
+            >
+              <Flashcard
+                card={currentCard}
+                isFlipped={isFlipped}
+                quizMode={quizMode}
+              />
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
       
@@ -170,6 +157,7 @@ const RecallItPage: React.FC = () => {
             onShowAnswer={handleShowAnswer}
             onRate={handleFeedback}
             disabled={isProcessing}
+            timerProgress={1} // Timer tidak ditampilkan di mode ini, jadi progres 100%
           />
           <AnimatePresence>
             {isFlipped && timeSpent !== null && (
@@ -184,6 +172,10 @@ const RecallItPage: React.FC = () => {
             )}
           </AnimatePresence>
       </div>
+      <SessionCompleteModal
+        isOpen={isSessionComplete}
+        onExit={endQuiz}
+      />
     </div>
   );
 };

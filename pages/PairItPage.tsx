@@ -5,6 +5,7 @@ import { shuffleArray } from '../utils/gameUtils';
 import Icon from '../components/Icon';
 import PairBox from '../components/PairBox';
 import GameHeader from '../components/GameHeader';
+import SessionCompleteModal from '../components/SessionCompleteModal';
 
 interface PairItem {
   id: string; // ID unik untuk kotak, mis. 'A-123'
@@ -29,13 +30,9 @@ const PairItPage: React.FC = () => {
   const [pairsB, setPairsB] = useState<PairItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<PairItem | null>(null);
   const [isChecking, setIsChecking] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
+  const [isSessionComplete, setIsSessionComplete] = useState(false);
   const [notEnoughCards, setNotEnoughCards] = useState(false);
   
-  // Hitung jumlah pasangan yang cocok dari state `pairsA`.
-  // Ini lebih canggih karena progresnya sekarang diturunkan langsung dari
-  // sumber kebenaran (state kartu), menghilangkan kebutuhan untuk state `matchedCount` terpisah
-  // dan mencegah potensi bug sinkronisasi.
   const matchedCount = pairsA.filter(p => p.matched).length;
 
   // Atur permainan saat komponen dimuat
@@ -85,14 +82,10 @@ const PairItPage: React.FC = () => {
 
   // Periksa penyelesaian permainan
   useEffect(() => {
-    // Bergantung pada `pairsA` untuk memicu pengecekan saat status `matched` berubah.
     if (gameCardsCount > 0 && matchedCount === gameCardsCount) {
-      setIsComplete(true);
-      setTimeout(() => {
-        endQuiz();
-      }, 2000);
+      setIsSessionComplete(true);
     }
-  }, [pairsA, gameCardsCount, matchedCount, endQuiz]);
+  }, [pairsA, gameCardsCount, matchedCount]);
 
   const handleBoxClick = (clickedItem: PairItem) => {
     if (isChecking || clickedItem.matched || clickedItem.id === selectedItem?.id) return;
@@ -141,8 +134,11 @@ const PairItPage: React.FC = () => {
     }
   };
 
-  // Kalkulasi progres sekarang menggunakan `matchedCount` yang diturunkan.
   const progressPercentage = gameCardsCount > 0 ? (matchedCount / gameCardsCount) * 100 : 0;
+  
+  if (isSessionComplete) {
+    return <SessionCompleteModal isOpen={true} onExit={endQuiz} />;
+  }
   
   if (notEnoughCards) {
     return (
@@ -156,18 +152,6 @@ const PairItPage: React.FC = () => {
         >
           Kembali ke Dek
         </button>
-      </div>
-    );
-  }
-
-  if (isComplete) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-4 animate-fade-in-slow">
-        <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1, transition: { type: 'spring' } }}>
-          <Icon name="sparkle" className="w-24 h-24 mb-6 text-yellow-400" />
-        </motion.div>
-        <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Luar Biasa!</h2>
-        <p className="text-gray-500 dark:text-[#C8C5CA]">Anda telah mencocokkan semua {gameCardsCount} pasang.</p>
       </div>
     );
   }
@@ -224,6 +208,11 @@ const PairItPage: React.FC = () => {
           animation: shake 0.5s ease-in-out;
         }
       `}</style>
+
+      <SessionCompleteModal
+        isOpen={isSessionComplete}
+        onExit={endQuiz}
+      />
     </div>
   );
 };

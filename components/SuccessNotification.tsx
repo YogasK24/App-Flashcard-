@@ -4,9 +4,9 @@ import { useCardStore } from '../store/cardStore';
 import Icon from './Icon';
 
 const notificationVariants = {
-  initial: { y: 50, opacity: 0 },
+  initial: { y: -50, opacity: 0 },
   animate: { y: 0, opacity: 1, transition: { type: 'spring', damping: 30, stiffness: 250 } },
-  exit: { y: 50, opacity: 0, transition: { type: 'spring', damping: 30, stiffness: 250 } }
+  exit: { y: -50, opacity: 0, transition: { type: 'spring', damping: 30, stiffness: 250 } }
 };
 
 const SuccessNotification: React.FC = () => {
@@ -26,25 +26,26 @@ const SuccessNotification: React.FC = () => {
   }, [notification, hideNotification]);
 
   return (
-    <AnimatePresence>
-      {notification?.isVisible && (
-        <motion.div
-          layout
-          key="success-notification"
-          className={`fixed bottom-8 left-1/2 -translate-x-1/2 ${
-            notification.type === 'success' ? 'bg-green-600' : 'bg-red-600'
-          } text-white px-6 py-3 rounded-xl shadow-2xl z-50 flex items-center space-x-3`}
-          variants={notificationVariants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          role="alert"
-        >
-          <Icon name={notification.type === 'success' ? 'sparkle' : 'trash'} className="w-5 h-5" />
-          <p className="font-semibold">{notification.message}</p>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div className="fixed top-8 inset-x-0 z-50 flex justify-center pointer-events-none">
+      <AnimatePresence>
+        {notification?.isVisible && (
+          <motion.div
+            key="success-notification"
+            className={`pointer-events-auto ${
+              notification.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+            } text-white px-6 py-2 rounded-full shadow-2xl flex items-center space-x-3`}
+            variants={notificationVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            role="alert"
+          >
+            <Icon name={notification.type === 'success' ? 'sparkle' : 'trash'} className="w-5 h-5" />
+            <p className="font-semibold whitespace-nowrap">{notification.message}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 

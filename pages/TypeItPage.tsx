@@ -6,6 +6,7 @@ import Icon from '../components/Icon';
 import { useQuizTimer } from '../hooks/useQuizTimer';
 import GameHeader from '../components/GameHeader';
 import CircularTimerButton from '../components/CircularTimerButton';
+import SessionCompleteModal from '../components/SessionCompleteModal';
 
 // Algoritma Levenshtein distance untuk perbandingan string fuzzy
 const levenshteinDistance = (s1: string, s2: string): number => {
@@ -47,11 +48,18 @@ const TypeItPage: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [feedback, setFeedback] = useState<'idle' | 'correct' | 'incorrect'>('idle');
   const [isAnswered, setIsAnswered] = useState(false);
+  const [isSessionComplete, setIsSessionComplete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const currentCard = useMemo(() => quizCards[currentCardIndex], [quizCards, currentCardIndex]);
   const questionField = studyDirection === 'kanji' ? 'front' : 'back';
   const answerField = studyDirection === 'kanji' ? 'back' : 'front';
+  
+  useEffect(() => {
+    if (quizCards.length > 0 && currentCardIndex >= quizCards.length) {
+      setIsSessionComplete(true);
+    }
+  }, [currentCardIndex, quizCards.length]);
 
   const advanceToNext = (isCorrect: boolean) => {
     if (isCorrect) {
@@ -90,7 +98,6 @@ const TypeItPage: React.FC = () => {
     e?.preventDefault();
     if (isAnswered || !inputValue.trim()) return;
 
-    // FIX: Hentikan timer saat jawaban dikirim dalam mode blitz.
     if (quizMode === 'blitz') {
       stopTimer();
     }
@@ -114,27 +121,12 @@ const TypeItPage: React.FC = () => {
       default: return 'border-gray-300 dark:border-gray-600 focus-within:border-[#C8B4F3]';
     }
   };
-
-  if (currentCardIndex >= quizCards.length && quizCards.length > 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-4 animate-fade-in-slow">
-        <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1, transition: { type: 'spring' } }}>
-          <Icon name="sparkle" className="w-24 h-24 mb-6 text-yellow-400" />
-        </motion.div>
-        <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Permainan Selesai!</h2>
-        <p className="text-gray-500 dark:text-[#C8C5CA] mb-6">Kerja bagus! Anda telah menyelesaikan semua kartu.</p>
-        <button
-          onClick={endQuiz}
-          className="bg-[#C8B4F3] text-[#1C1B1F] font-bold py-3 px-8 rounded-full text-lg"
-        >
-          Kembali ke Dek
-        </button>
-      </div>
-    );
+  
+  if (isSessionComplete) {
+    return <SessionCompleteModal isOpen={true} onExit={endQuiz} />;
   }
   
   if (!currentCard) {
-    // Fallback jika tidak ada kartu (misalnya, dek kosong)
     return (
         <div className="flex flex-col items-center justify-center h-full text-center p-4 animate-fade-in-slow">
             <Icon name="document" className="w-24 h-24 mb-6 opacity-50 text-yellow-500" />
@@ -168,7 +160,7 @@ const TypeItPage: React.FC = () => {
 
       <GameHeader
         modeTitle="Ketik Jawaban"
-        currentIndex={currentCardIndex + 1}
+        currentIndex={Math.min(currentCardIndex + 1, quizCards.length)}
         totalCards={quizCards.length}
         progress={progressPercentage}
         boxInfo={quizMode === 'sr' && currentCard ? `Box ${currentCard.repetitions + 1}` : undefined}
@@ -176,34 +168,36 @@ const TypeItPage: React.FC = () => {
       
       <main className="flex-grow flex flex-col justify-start items-center w-full pt-8">
         <AnimatePresence mode="wait">
-          <motion.div
-            key={currentCard.id}
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.3 }}
-            className="w-full flex flex-col items-center"
-          >
-            <div className="bg-gray-200 dark:bg-[#4A4458] rounded-xl flex items-center justify-center p-6 w-full h-48 max-w-lg mx-auto mb-8">
-                <p className="text-4xl md:text-5xl font-bold text-center text-gray-900 dark:text-[#E6E1E5]">
-                    {currentCard[questionField]}
-                </p>
-            </div>
-          
-            <form onSubmit={handleSubmit} className="w-full max-w-lg mx-auto">
-              <div className={`p-1 rounded-xl border-2 transition-colors ${getBorderColor()}`}>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Ketik jawaban Anda..."
-                  disabled={isAnswered}
-                  className="w-full bg-white dark:bg-[#2B2930] text-gray-900 dark:text-[#E6E1E5] text-3xl text-center font-semibold p-4 rounded-lg focus:outline-none"
-                />
+          {currentCard && (
+            <motion.div
+              key={currentCard.id}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.3 }}
+              className="w-full flex flex-col items-center"
+            >
+              <div className="bg-gray-200 dark:bg-[#4A4458] rounded-xl flex items-center justify-center p-6 w-full h-48 max-w-lg mx-auto mb-8">
+                  <p className="text-4xl md:text-5xl font-bold text-center text-gray-900 dark:text-[#E6E1E5]">
+                      {currentCard[questionField]}
+                  </p>
               </div>
-            </form>
-          </motion.div>
+            
+              <form onSubmit={handleSubmit} className="w-full max-w-lg mx-auto">
+                <div className={`p-1 rounded-xl border-2 transition-colors ${getBorderColor()}`}>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    placeholder="Ketik jawaban Anda..."
+                    disabled={isAnswered}
+                    className="w-full bg-white dark:bg-[#2B2930] text-gray-900 dark:text-[#E6E1E5] text-3xl text-center font-semibold p-4 rounded-lg focus:outline-none"
+                  />
+                </div>
+              </form>
+            </motion.div>
+          )}
         </AnimatePresence>
         
         <AnimatePresence>
@@ -230,6 +224,11 @@ const TypeItPage: React.FC = () => {
           Periksa
         </CircularTimerButton>
       </div>
+
+      <SessionCompleteModal
+        isOpen={isSessionComplete}
+        onExit={endQuiz}
+      />
     </div>
   );
 };
