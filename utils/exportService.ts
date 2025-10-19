@@ -1,48 +1,9 @@
 import { db } from '../services/databaseService';
-import { Card, Deck } from '../types';
+import { Card } from '../types';
 import { utils, writeFile } from 'xlsx';
 import Papa from 'papaparse';
 import { getCardsInHierarchy } from './gameUtils';
 import { useCardStore } from '../store/cardStore';
-
-interface ExportDataRow {
-    deck_path: string;
-    front: string;
-    back: string;
-    transcription: string;
-    example: string;
-}
-
-const buildDeckPathMap = async (): Promise<Map<number, string>> => {
-    const allDecks = await db.decks.toArray();
-    const deckMap = new Map<number, Deck>(allDecks.map(d => [d.id, d]));
-    const pathMap = new Map<number, string>();
-
-    const getPath = (deckId: number): string => {
-        if (pathMap.has(deckId)) {
-            return pathMap.get(deckId)!;
-        }
-        const deck = deckMap.get(deckId);
-        if (!deck) return '';
-        if (deck.parentId === null) {
-            const path = deck.title;
-            pathMap.set(deckId, path);
-            return path;
-        }
-        const parentPath = getPath(deck.parentId);
-        const fullPath = parentPath ? `${parentPath} > ${deck.title}` : deck.title;
-        pathMap.set(deckId, fullPath);
-        return fullPath;
-    };
-    
-    for (const deck of allDecks) {
-        if (deck.type === 'deck') {
-            getPath(deck.id);
-        }
-    }
-    return pathMap;
-};
-
 
 const getCardsForExport = async (scope: 'all' | 'folder' | 'deck', itemId: number | null): Promise<Card[]> => {
     if (scope === 'all') {
@@ -73,15 +34,38 @@ export const exportData = async (
             return;
         }
 
-        const deckPathMap = await buildDeckPathMap();
+        // Definisi master field dan cara mendapatkan nilainya dari objek Card.
+        // Ini adalah header yang berpotensi untuk diekspor.
+        const masterFields: Record<string, (card: Card) => string | undefined> = {
+            '日本語(漢字)': (card) => card.front,
+            '日本語(片仮名)': (card) => card.back,
+            'Terjemahan': (card) => card.transcription,
+            'Contoh Kalimat': (card) => card.example,
+        };
+        
+        // Tentukan header mana yang memiliki data aktual dan harus disertakan dalam ekspor.
+        const activeHeaders = Object.keys(masterFields).filter(header =>
+            cardsToExport.some(card => {
+                const value = masterFields[header as keyof typeof masterFields](card);
+                return value != null && String(value).trim() !== '';
+            })
+        );
+        
+        // Jika tidak ada header yang memiliki data (misalnya, semua kartu kosong),
+        // ekspor setidaknya header yang wajib ada.
+        if (activeHeaders.length === 0) {
+            activeHeaders.push('日本語(漢字)', '日本語(片仮名)');
+        }
 
-        const dataForSheet: ExportDataRow[] = cardsToExport.map(card => ({
-            deck_path: deckPathMap.get(card.deckId) || 'Unknown Deck',
-            front: card.front,
-            back: card.back,
-            transcription: card.transcription || '',
-            example: card.example || ''
-        }));
+        // Transformasi data untuk ekspor, hanya menyertakan kolom-kolom yang aktif.
+        const dataForSheet = cardsToExport.map(card => {
+            const row: Record<string, string> = {};
+            activeHeaders.forEach(header => {
+                const value = masterFields[header as keyof typeof masterFields](card);
+                row[header] = value || '';
+            });
+            return row;
+        });
         
         const safeItemName = itemName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
         const fileName = `${safeItemName}_${new Date().toISOString().split('T')[0]}.${format}`;
