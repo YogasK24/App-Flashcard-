@@ -28,6 +28,7 @@ import SearchScopeToggle from './components/SearchScopeToggle';
 import Icon from './components/Icon';
 import { parseFile, ParsedFileData } from './utils/importService';
 import SuccessNotification from './components/SuccessNotification';
+import ExportModal from './components/ExportModal';
 
 export interface CardSearchResult {
   card: Card;
@@ -215,9 +216,11 @@ function App() {
   const [cardSearchResults, setCardSearchResults] = useState<CardSearchResult[]>([]);
   const [cardIdToHighlight, setCardIdToHighlight] = useState<number | null>(null);
 
-  // State untuk fungsionalitas impor
+  // State untuk fungsionalitas impor/ekspor
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
   const [importData, setImportData] = useState<ParsedFileData | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportTargetId, setExportTargetId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -441,7 +444,7 @@ function App() {
 
   const handleShowContextMenu = useCallback((event: React.MouseEvent, deckId: number) => {
     const menuWidth = 192;
-    const menuHeight = 176;
+    const menuHeight = 220; // Disesuaikan untuk item baru
     const padding = 10;
 
     let x = event.clientX;
@@ -489,6 +492,12 @@ function App() {
       setDeleteConfirmation({ deckId: deckToDelete.id, title: deckToDelete.title });
     }
   }, [decks]);
+  
+  const handleExportDeck = useCallback((deckId: number) => {
+    setExportTargetId(deckId);
+    setIsExportModalOpen(true);
+    handleCloseContextMenu();
+  }, [handleCloseContextMenu]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (deleteConfirmation) {
@@ -539,6 +548,17 @@ function App() {
       fileInputRef.current?.click();
   }, []);
   
+  const handleSidebarExportClick = useCallback(() => {
+    setIsMainMenuOpen(false);
+    setExportTargetId(null);
+    setIsExportModalOpen(true);
+  }, []);
+
+  const handleCloseExportModal = useCallback(() => {
+    setIsExportModalOpen(false);
+    setExportTargetId(null); // Reset target saat modal ditutup
+  }, []);
+
   const handleCardListBack = useCallback(() => {
     setSelectedDeckId(null);
     setRefreshKey(k => k + 1);
@@ -735,6 +755,7 @@ function App() {
             onRename={handleRenameDeck}
             onCopy={handleCopyDeck}
             onMove={handleMoveDeck}
+            onExport={handleExportDeck}
             onDelete={handleDeleteDeck}
           />
         )}
@@ -842,6 +863,7 @@ function App() {
               <Sidebar
                 onClose={handleCloseSidebar}
                 onImport={handleImportClick}
+                onExport={handleSidebarExportClick}
               />
             </motion.aside>
           </>
@@ -858,6 +880,19 @@ function App() {
             previewData={importData.previewData}
             fileName={importData.fileName}
             onSave={finalizeImport}
+          />
+        )}
+      </AnimatePresence>
+      
+      <AnimatePresence mode="wait">
+        {isExportModalOpen && (
+          <ExportModal
+            key="export-modal"
+            isOpen={isExportModalOpen}
+            onClose={handleCloseExportModal}
+            initialItemId={exportTargetId}
+            currentParentId={currentParentId}
+            selectedDeckId={selectedDeckId}
           />
         )}
       </AnimatePresence>

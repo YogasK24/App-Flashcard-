@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, Variants } from 'framer-motion';
+import Icon from './Icon';
 
 interface ContextMenuProps {
   x: number;
@@ -9,6 +10,7 @@ interface ContextMenuProps {
   onRename: (deckId: number) => void;
   onCopy: (deckId: number) => void;
   onMove: (deckId: number) => void;
+  onExport: (deckId: number) => void;
   onDelete: (deckId: number) => void;
 }
 
@@ -17,7 +19,7 @@ const menuVariants: Variants = {
   visible: { opacity: 1, scale: 1, transition: { duration: 0.1 } },
 };
 
-const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, deckId, onClose, onRename, onCopy, onMove, onDelete }) => {
+const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, deckId, onClose, onRename, onCopy, onMove, onExport, onDelete }) => {
   const menuStyle = {
     top: `${y}px`,
     left: `${x}px`,
@@ -27,6 +29,8 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, deckId, onClose, onRena
     action(deckId);
     onClose();
   };
+  
+  const baseButtonClass = "w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-[#4A4458] transition-colors flex items-center";
 
   return (
     <>
@@ -48,32 +52,45 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, deckId, onClose, onRena
           <li>
             <button
               onClick={() => handleAction(onRename)}
-              className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-[#4A4458] transition-colors"
+              className={baseButtonClass}
             >
+              <Icon name="edit" className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
               Ubah Nama
             </button>
           </li>
           <li>
             <button
               onClick={() => handleAction(onCopy)}
-              className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-[#4A4458] transition-colors"
+              className={baseButtonClass}
             >
+              <Icon name="document" className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
               Salin
             </button>
           </li>
           <li>
             <button
               onClick={() => handleAction(onMove)}
-              className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-[#4A4458] transition-colors"
+              className={baseButtonClass}
             >
+              <Icon name="swap" className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
               Pindahkan
             </button>
           </li>
           <li>
             <button
-              onClick={() => handleAction(onDelete)}
-              className="w-full text-left px-4 py-2 text-red-500 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-[#4A4458] transition-colors"
+              onClick={() => handleAction(onExport)}
+              className={baseButtonClass}
             >
+              <Icon name="upload" className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
+              Ekspor
+            </button>
+          </li>
+          <li>
+            <button
+              onClick={() => handleAction(onDelete)}
+              className={`${baseButtonClass} text-red-500 dark:text-red-400`}
+            >
+              <Icon name="trash" className="w-5 h-5 mr-3" />
               Hapus
             </button>
           </li>

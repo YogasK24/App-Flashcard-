@@ -1,10 +1,10 @@
-
 import React from 'react';
 import Icon from './Icon';
 
 interface SidebarProps {
   onClose: () => void;
   onImport: () => void;
+  onExport: () => void;
 }
 
 interface SidebarMenuItemProps {
@@ -29,7 +29,7 @@ const SidebarMenuItem: React.FC<SidebarMenuItemProps> = ({ icon, label, onClick,
   );
 };
 
-const Sidebar: React.FC<SidebarProps> = ({ onClose, onImport }) => {
+const Sidebar: React.FC<SidebarProps> = ({ onClose, onImport, onExport }) => {
   return (
     <>
       {/* Header */}
@@ -49,16 +49,21 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, onImport }) => {
             onClick={onImport} 
           />
           <SidebarMenuItem 
+            icon="document" 
+            label="Ekspor Dek" 
+            onClick={onExport} 
+          />
+          <SidebarMenuItem 
             icon="layoutGrid" 
             label="Dasbor Progres" 
             onClick={() => alert('Fitur Dasbor Progres akan segera hadir!')} 
-            disabled={false}
+            disabled={true}
           />
            <SidebarMenuItem 
             icon="tune" 
             label="Pengaturan" 
             onClick={() => alert('Fitur Pengaturan akan segera hadir!')} 
-            disabled={false}
+            disabled={true}
           />
         </ul>
       </nav>
