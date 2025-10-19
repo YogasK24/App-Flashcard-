@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 type StudyMode = 'sr' | 'simple' | 'blitz';
 export type SortOption = 'date-desc' | 'date-asc' | 'title-asc' | 'title-desc';
 export type FilterOption = 'all' | 'folders' | 'decks';
+export type QuizFontSize = 'small' | 'medium' | 'large';
 
 interface SettingsState {
   theme: 'light' | 'dark';
@@ -18,6 +19,10 @@ interface SettingsState {
   setSortOption: (option: SortOption) => void;
   filterOption: FilterOption;
   setFilterOption: (option: FilterOption) => void;
+  isTTSMuted: boolean;
+  toggleTTSMute: () => void;
+  quizFontSize: QuizFontSize;
+  setQuizFontSize: (size: QuizFontSize) => void;
 }
 
 // Deteksi preferensi tema sistem sebagai default awal
@@ -34,6 +39,8 @@ export const useThemeStore = create(
       currentStudyMode: 'sr', // Mode belajar default
       sortOption: 'date-desc', // Default: Terbaru dulu
       filterOption: 'all',     // Default: Tampilkan semua
+      isTTSMuted: false, // Default: suara aktif
+      quizFontSize: 'medium', // Default font size
       toggleTheme: () =>
         set((state) => ({
           theme: state.theme === 'dark' ? 'light' : 'dark',
@@ -43,6 +50,8 @@ export const useThemeStore = create(
       setCurrentStudyMode: (mode) => set({ currentStudyMode: mode }),
       setSortOption: (option) => set({ sortOption: option }),
       setFilterOption: (option) => set({ filterOption: option }),
+      toggleTTSMute: () => set((state) => ({ isTTSMuted: !state.isTTSMuted })),
+      setQuizFontSize: (size) => set({ quizFontSize: size }),
     }),
     {
       name: 'flashcard-settings-storage', // nama unik untuk localStorage

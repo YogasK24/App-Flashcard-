@@ -4,16 +4,21 @@ import { useCardStore } from '../store/cardStore';
 import { useThemeStore } from '../store/themeStore';
 import { generateGuessOptions } from '../utils/gameUtils';
 import Icon from '../components/Icon';
+import GameHeader from '../components/GameHeader';
+import { useQuizTimer } from '../hooks/useQuizTimer';
+import CircularTimer from '../components/CircularTimer';
 
 const GuessItPage: React.FC = () => {
-  const { quizCards, updateCardProgress, endQuiz } = useCardStore(state => ({
+  const { quizCards, updateCardProgress, endQuiz, quizMode } = useCardStore(state => ({
     quizCards: state.quizCards,
     updateCardProgress: state.updateCardProgress,
     endQuiz: state.endQuiz,
+    quizMode: state.quizMode,
   }));
-  const { studyDirection } = useThemeStore();
+  const { studyDirection, timerDuration } = useThemeStore();
 
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [correctAnswerCount, setCorrectAnswerCount] = useState(0);
   const [options, setOptions] = useState<string[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -24,6 +29,28 @@ const GuessItPage: React.FC = () => {
   const answerField = studyDirection === 'kanji' ? 'back' : 'front';
 
   const currentCard = useMemo(() => quizCards[currentCardIndex], [quizCards, currentCardIndex]);
+
+  const handleTimeUp = () => {
+    if (isAnswered) return;
+    setIsAnswered(true);
+    setSelectedAnswer(null); // Tidak ada jawaban yang dipilih
+
+    updateCardProgress(currentCard, 'lupa').then(() => {
+      setTimeout(() => {
+        setDirection(1);
+        setCurrentCardIndex(prev => prev + 1);
+        setIsAnswered(false);
+        setSelectedAnswer(null);
+      }, 1800);
+    });
+  };
+
+  const { timeLeft, stopTimer } = useQuizTimer({
+    key: currentCard?.id,
+    initialTime: quizMode === 'blitz' ? timerDuration : 0,
+    onTimeUp: handleTimeUp,
+  });
+
 
   useEffect(() => {
     if (quizCards.length < 2) {
@@ -38,26 +65,26 @@ const GuessItPage: React.FC = () => {
   }, [currentCard, quizCards, answerField]);
 
   const handleOptionSelect = async (selectedAnswerByUser: string) => {
-    // 1. Kunci Jawaban: Mencegah klik lebih lanjut saat umpan balik ditampilkan.
     if (isAnswered) return;
+    stopTimer();
     setIsAnswered(true);
     setSelectedAnswer(selectedAnswerByUser);
 
-    // 2. Perbandingan: Periksa apakah jawaban yang dipilih benar.
     const correctAnswer = currentCard[answerField];
     const isCorrect = selectedAnswerByUser === correctAnswer;
     
-    // 3. Umpan Balik & Pembaruan Progres: Perbarui kemajuan belajar dan picu umpan balik visual.
+    if (isCorrect) {
+      setCorrectAnswerCount(prev => prev + 1);
+    }
+    
     await updateCardProgress(currentCard, isCorrect ? 'ingat' : 'lupa');
 
-    // 4. Navigasi: Setelah jeda, lanjutkan ke kartu berikutnya.
     setTimeout(() => {
       setDirection(1);
       setCurrentCardIndex(prev => prev + 1);
-      // Reset state untuk pertanyaan berikutnya
       setIsAnswered(false);
       setSelectedAnswer(null);
-    }, 1800); // Jeda 1.8 detik untuk memberikan waktu meninjau umpan balik
+    }, 1800);
   };
 
   const cardVariants = {
@@ -118,20 +145,18 @@ const GuessItPage: React.FC = () => {
         </div>
     );
   }
+  
+  const progressPercentage = quizCards.length > 0 ? (correctAnswerCount / quizCards.length) * 100 : 0;
 
   return (
     <div className="flex flex-col h-full p-4 overflow-hidden">
-      <header className="flex justify-between items-center w-full mb-4 flex-shrink-0">
-        <div className="flex items-center space-x-2 min-w-0">
-          <button onClick={endQuiz} aria-label="Keluar dari permainan" className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10">
-            <Icon name="chevronLeft" className="w-6 h-6 text-gray-800 dark:text-[#E6E1E5]" />
-          </button>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-[#E6E1E5] truncate">Tebak Jawaban</h2>
-        </div>
-        <div className="text-gray-500 dark:text-[#C8C5CA] font-mono text-sm whitespace-nowrap pt-0.5">
-          {`${currentCardIndex + 1} / ${quizCards.length}`}
-        </div>
-      </header>
+      <GameHeader 
+        modeTitle="Tebak Jawaban"
+        currentIndex={currentCardIndex + 1}
+        totalCards={quizCards.length}
+        progress={progressPercentage}
+        boxInfo={quizMode === 'sr' && currentCard ? `Box ${currentCard.repetitions + 1}` : undefined}
+      />
       
       <main className="flex-grow flex flex-col justify-center items-center">
         <div className="w-full h-full flex flex-col justify-between">
@@ -149,10 +174,21 @@ const GuessItPage: React.FC = () => {
               }}
               className="w-full flex-grow flex items-center justify-center"
             >
-              <div className="bg-gray-200 dark:bg-[#4A4458] rounded-xl flex items-center justify-center p-6 w-full h-48">
-                <p className="text-4xl md:text-5xl font-bold text-center text-gray-900 dark:text-[#E6E1E5]">
-                  {currentCard[questionField]}
-                </p>
+              <div className="relative w-full max-w-sm h-48 flex items-center justify-center">
+                {quizMode === 'blitz' && (
+                  <CircularTimer
+                    duration={timerDuration}
+                    timeLeft={timeLeft}
+                    size={220} // Sedikit lebih besar dari tinggi kartu (h-48 adalah 192px)
+                    strokeWidth={8}
+                    className="absolute inset-0 m-auto pointer-events-none z-0"
+                  />
+                )}
+                <div className="relative z-10 bg-gray-200 dark:bg-[#4A4458] rounded-xl flex items-center justify-center p-6 w-full h-48">
+                  <p className="text-4xl md:text-5xl font-bold text-center text-gray-900 dark:text-[#E6E1E5]">
+                    {currentCard[questionField]}
+                  </p>
+                </div>
               </div>
             </motion.div>
           </AnimatePresence>

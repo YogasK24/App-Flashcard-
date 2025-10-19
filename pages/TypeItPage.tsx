@@ -4,7 +4,8 @@ import { useCardStore } from '../store/cardStore';
 import { useThemeStore } from '../store/themeStore';
 import Icon from '../components/Icon';
 import { useQuizTimer } from '../hooks/useQuizTimer';
-import CircularTimer from '../components/CircularTimer';
+import GameHeader from '../components/GameHeader';
+import CircularTimerButton from '../components/CircularTimerButton';
 
 // Algoritma Levenshtein distance untuk perbandingan string fuzzy
 const levenshteinDistance = (s1: string, s2: string): number => {
@@ -30,10 +31,11 @@ const levenshteinDistance = (s1: string, s2: string): number => {
 };
 
 const TypeItPage: React.FC = () => {
-  const { quizCards, updateCardProgress, endQuiz } = useCardStore(state => ({
+  const { quizCards, updateCardProgress, endQuiz, quizMode } = useCardStore(state => ({
     quizCards: state.quizCards,
     updateCardProgress: state.updateCardProgress,
     endQuiz: state.endQuiz,
+    quizMode: state.quizMode,
   }));
   const { studyDirection, timerDuration } = useThemeStore(state => ({
     studyDirection: state.studyDirection,
@@ -41,6 +43,7 @@ const TypeItPage: React.FC = () => {
   }));
 
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [correctAnswerCount, setCorrectAnswerCount] = useState(0); // State baru untuk melacak jawaban benar
   const [inputValue, setInputValue] = useState('');
   const [feedback, setFeedback] = useState<'idle' | 'correct' | 'incorrect'>('idle');
   const [isAnswered, setIsAnswered] = useState(false);
@@ -51,6 +54,9 @@ const TypeItPage: React.FC = () => {
   const answerField = studyDirection === 'kanji' ? 'back' : 'front';
 
   const advanceToNext = (isCorrect: boolean) => {
+    if (isCorrect) {
+      setCorrectAnswerCount(prev => prev + 1); // Tambahkan hitungan jika benar
+    }
     setFeedback(isCorrect ? 'correct' : 'incorrect');
     updateCardProgress(currentCard, isCorrect ? 'ingat' : 'lupa').then(() => {
       setTimeout(() => {
@@ -68,9 +74,9 @@ const TypeItPage: React.FC = () => {
     advanceToNext(false); // Waktu habis selalu salah
   };
   
-  const { timeLeft } = useQuizTimer({
+  const { timerProgress, stopTimer } = useQuizTimer({
     key: currentCard?.id,
-    initialTime: timerDuration,
+    initialTime: quizMode === 'blitz' ? timerDuration : 0,
     onTimeUp: handleTimeUp,
   });
   
@@ -83,6 +89,11 @@ const TypeItPage: React.FC = () => {
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (isAnswered || !inputValue.trim()) return;
+
+    // FIX: Hentikan timer saat jawaban dikirim dalam mode blitz.
+    if (quizMode === 'blitz') {
+      stopTimer();
+    }
 
     setIsAnswered(true);
     const userAnswer = inputValue.trim();
@@ -138,6 +149,9 @@ const TypeItPage: React.FC = () => {
         </div>
     );
   }
+  
+  // Perbarui kalkulasi progres untuk menggunakan jawaban benar
+  const progressPercentage = quizCards.length > 0 ? (correctAnswerCount / quizCards.length) * 100 : 0;
 
   return (
     <div className="flex flex-col h-full p-4 overflow-hidden">
@@ -152,19 +166,15 @@ const TypeItPage: React.FC = () => {
         }
       `}</style>
 
-      <header className="flex justify-between items-center w-full mb-4 flex-shrink-0">
-        <div className="flex items-center space-x-2 min-w-0">
-          <button onClick={endQuiz} aria-label="Keluar dari permainan" className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10">
-            <Icon name="chevronLeft" className="w-6 h-6 text-gray-800 dark:text-[#E6E1E5]" />
-          </button>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-[#E6E1E5] truncate">Ketik Jawaban</h2>
-        </div>
-        <div className="text-gray-500 dark:text-[#C8C5CA] font-mono text-sm whitespace-nowrap pt-0.5">
-          {`${currentCardIndex + 1} / ${quizCards.length}`}
-        </div>
-      </header>
+      <GameHeader
+        modeTitle="Ketik Jawaban"
+        currentIndex={currentCardIndex + 1}
+        totalCards={quizCards.length}
+        progress={progressPercentage}
+        boxInfo={quizMode === 'sr' && currentCard ? `Box ${currentCard.repetitions + 1}` : undefined}
+      />
       
-      <main className="flex-grow flex flex-col justify-center items-center w-full">
+      <main className="flex-grow flex flex-col justify-start items-center w-full pt-8">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentCard.id}
@@ -174,19 +184,10 @@ const TypeItPage: React.FC = () => {
             transition={{ duration: 0.3 }}
             className="w-full flex flex-col items-center"
           >
-            <div className="relative w-full max-w-lg mx-auto mb-8">
-                <CircularTimer
-                    duration={timerDuration}
-                    timeLeft={timeLeft}
-                    size={240}
-                    strokeWidth={6}
-                    className="absolute inset-0 m-auto pointer-events-none z-0"
-                />
-                <div className="relative z-10 bg-gray-200 dark:bg-[#4A4458] rounded-xl flex items-center justify-center p-6 w-full h-48">
-                    <p className="text-4xl md:text-5xl font-bold text-center text-gray-900 dark:text-[#E6E1E5]">
-                        {currentCard[questionField]}
-                    </p>
-                </div>
+            <div className="bg-gray-200 dark:bg-[#4A4458] rounded-xl flex items-center justify-center p-6 w-full h-48 max-w-lg mx-auto mb-8">
+                <p className="text-4xl md:text-5xl font-bold text-center text-gray-900 dark:text-[#E6E1E5]">
+                    {currentCard[questionField]}
+                </p>
             </div>
           
             <form onSubmit={handleSubmit} className="w-full max-w-lg mx-auto">
@@ -220,14 +221,14 @@ const TypeItPage: React.FC = () => {
         </AnimatePresence>
       </main>
 
-      <div className="flex-shrink-0 mt-6 h-14">
-        <button
+      <div className="flex-shrink-0 mt-auto pt-6 flex justify-center items-center h-28">
+        <CircularTimerButton
           onClick={() => handleSubmit()}
+          timerProgress={quizMode === 'blitz' ? timerProgress : 1}
           disabled={isAnswered || !inputValue.trim()}
-          className="w-full bg-[#C8B4F3] text-[#1C1B1F] font-bold py-3 rounded-full text-lg transition-all duration-200 ease-in-out hover:scale-105 active:scale-95 disabled:opacity-50 disabled:transform-none"
         >
           Periksa
-        </button>
+        </CircularTimerButton>
       </div>
     </div>
   );

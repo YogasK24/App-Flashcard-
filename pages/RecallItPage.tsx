@@ -5,6 +5,7 @@ import Icon from '../components/Icon';
 import Flashcard from '../components/Flashcard';
 import QuizControls from '../components/QuizControls';
 import { useQuizTimer } from '../hooks/useQuizTimer';
+import GameHeader from '../components/GameHeader';
 
 const RECALL_TIMER_DURATION = 600; // 10 menit, waktu yang cukup.
 
@@ -17,6 +18,7 @@ const RecallItPage: React.FC = () => {
   }));
 
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [correctAnswerCount, setCorrectAnswerCount] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [direction, setDirection] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -67,6 +69,10 @@ const RecallItPage: React.FC = () => {
     if (isProcessing) return;
     setIsProcessing(true);
     setDirection(1);
+
+    if (feedback === 'ingat') {
+      setCorrectAnswerCount(prev => prev + 1);
+    }
 
     await updateCardProgress(currentCard, feedback);
 
@@ -121,20 +127,18 @@ const RecallItPage: React.FC = () => {
         </div>
     );
   }
+  
+  const progressPercentage = totalCards > 0 ? (correctAnswerCount / totalCards) * 100 : 0;
 
   return (
     <div className="flex flex-col h-full p-4 overflow-hidden">
-      <header className="flex justify-between items-center w-full mb-4 flex-shrink-0">
-        <div className="flex items-center space-x-2 min-w-0">
-          <button onClick={endQuiz} aria-label="Keluar dari permainan" className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10">
-            <Icon name="chevronLeft" className="w-6 h-6 text-gray-800 dark:text-[#E6E1E5]" />
-          </button>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-[#E6E1E5] truncate">Ingat Kembali</h2>
-        </div>
-        <div className="text-gray-500 dark:text-[#C8C5CA] font-mono text-sm whitespace-nowrap pt-0.5">
-          {`${currentCardIndex + 1} / ${totalCards}`}
-        </div>
-      </header>
+      <GameHeader
+        modeTitle="Ingat Kembali"
+        currentIndex={currentCardIndex + 1}
+        totalCards={totalCards}
+        progress={progressPercentage}
+        boxInfo={quizMode === 'sr' && currentCard ? `Box ${currentCard.repetitions + 1}` : undefined}
+      />
       
       <main className="flex-grow flex items-center justify-center relative">
         <AnimatePresence initial={false} custom={direction} mode="wait">

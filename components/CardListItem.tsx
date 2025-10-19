@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Card } from '../types';
 import Icon from './Icon';
 import { speakText } from '../services/ttsService';
+import { useThemeStore } from '../store/themeStore';
 
 interface CardListItemProps {
   card: Card;
@@ -11,8 +12,30 @@ interface CardListItemProps {
   highlightedCardId: number | null;
 }
 
+// Memetakan pengaturan ke kelas Tailwind
+const sizeClassMap = {
+  front: {
+    small: 'text-xl',
+    medium: 'text-2xl',
+    large: 'text-3xl',
+  },
+  back: {
+    small: 'text-base',
+    medium: 'text-lg',
+    large: 'text-xl',
+  },
+  transcription: {
+    small: 'text-xs',
+    medium: 'text-sm',
+    large: 'text-base',
+  },
+};
+
 const CardListItem: React.FC<CardListItemProps> = ({ card, onEdit, onDelete, highlightedCardId }) => {
   const [isFlashing, setIsFlashing] = useState(false);
+  const { quizFontSize } = useThemeStore(state => ({
+    quizFontSize: state.quizFontSize,
+  }));
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -47,6 +70,11 @@ const CardListItem: React.FC<CardListItemProps> = ({ card, onEdit, onDelete, hig
     ? 'bg-yellow-400/50 dark:bg-yellow-800/50 rounded-lg'
     : '';
 
+  const frontSizeClass = sizeClassMap.front[quizFontSize] || sizeClassMap.front.medium;
+  const backSizeClass = sizeClassMap.back[quizFontSize] || sizeClassMap.back.medium;
+  const transcriptionSizeClass = sizeClassMap.transcription[quizFontSize] || sizeClassMap.transcription.medium;
+
+
   return (
     <motion.div
       id={`card-list-item-${card.id!}`}
@@ -60,14 +88,14 @@ const CardListItem: React.FC<CardListItemProps> = ({ card, onEdit, onDelete, hig
 
         {/* Kolom Kiri (Kanji) */}
         <div className="px-4">
-          <p className="text-2xl font-semibold text-gray-800 dark:text-[#E6E1E5]">{card.front}</p>
+          <p className={`font-semibold text-gray-800 dark:text-[#E6E1E5] ${frontSizeClass}`}>{card.front}</p>
         </div>
 
         {/* Kolom Kanan (Detail) */}
         <div className="flex flex-col flex-1 pl-4">
-          <p className="text-lg text-gray-800 dark:text-[#E6E1E5]">{card.back}</p>
+          <p className={`text-gray-800 dark:text-[#E6E1E5] ${backSizeClass}`}>{card.back}</p>
           {card.transcription && (
-            <p className="text-sm text-gray-400 dark:text-gray-500 italic">[{card.transcription}]</p>
+            <p className={`text-gray-400 dark:text-gray-500 italic ${transcriptionSizeClass}`}>[{card.transcription}]</p>
           )}
         </div>
 

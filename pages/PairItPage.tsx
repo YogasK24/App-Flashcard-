@@ -4,6 +4,7 @@ import { useCardStore } from '../store/cardStore';
 import { shuffleArray } from '../utils/gameUtils';
 import Icon from '../components/Icon';
 import PairBox from '../components/PairBox';
+import GameHeader from '../components/GameHeader';
 
 interface PairItem {
   id: string; // ID unik untuk kotak, mis. 'A-123'
@@ -28,10 +29,15 @@ const PairItPage: React.FC = () => {
   const [pairsB, setPairsB] = useState<PairItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<PairItem | null>(null);
   const [isChecking, setIsChecking] = useState(false);
-  const [matchedCount, setMatchedCount] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [notEnoughCards, setNotEnoughCards] = useState(false);
   
+  // Hitung jumlah pasangan yang cocok dari state `pairsA`.
+  // Ini lebih canggih karena progresnya sekarang diturunkan langsung dari
+  // sumber kebenaran (state kartu), menghilangkan kebutuhan untuk state `matchedCount` terpisah
+  // dan mencegah potensi bug sinkronisasi.
+  const matchedCount = pairsA.filter(p => p.matched).length;
+
   // Atur permainan saat komponen dimuat
   useEffect(() => {
     const shuffled = shuffleArray([...quizCards]);
@@ -79,13 +85,14 @@ const PairItPage: React.FC = () => {
 
   // Periksa penyelesaian permainan
   useEffect(() => {
+    // Bergantung pada `pairsA` untuk memicu pengecekan saat status `matched` berubah.
     if (gameCardsCount > 0 && matchedCount === gameCardsCount) {
       setIsComplete(true);
       setTimeout(() => {
         endQuiz();
       }, 2000);
     }
-  }, [matchedCount, gameCardsCount, endQuiz]);
+  }, [pairsA, gameCardsCount, matchedCount, endQuiz]);
 
   const handleBoxClick = (clickedItem: PairItem) => {
     if (isChecking || clickedItem.matched || clickedItem.id === selectedItem?.id) return;
@@ -116,7 +123,6 @@ const PairItPage: React.FC = () => {
       setTimeout(() => {
         setPairsA(prev => prev.map(p => p.cardId === clickedItem.cardId ? { ...p, matched: true, selected: false } : p));
         setPairsB(prev => prev.map(p => p.cardId === clickedItem.cardId ? { ...p, matched: true, selected: false } : p));
-        setMatchedCount(prev => prev + 1);
         setSelectedItem(null);
         setIsChecking(false);
       }, 400);
@@ -135,6 +141,7 @@ const PairItPage: React.FC = () => {
     }
   };
 
+  // Kalkulasi progres sekarang menggunakan `matchedCount` yang diturunkan.
   const progressPercentage = gameCardsCount > 0 ? (matchedCount / gameCardsCount) * 100 : 0;
   
   if (notEnoughCards) {
@@ -195,26 +202,12 @@ const PairItPage: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full p-4 overflow-hidden">
-      <header className="flex justify-between items-center w-full mb-2 flex-shrink-0">
-        <div className="flex items-center space-x-2 min-w-0">
-          <button onClick={endQuiz} aria-label="Keluar dari permainan" className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10">
-            <Icon name="chevronLeft" className="w-6 h-6 text-gray-800 dark:text-[#E6E1E5]" />
-          </button>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-[#E6E1E5] truncate">Cocokkan Pasangan</h2>
-        </div>
-        <div className="text-gray-500 dark:text-[#C8C5CA] font-mono text-sm whitespace-nowrap pt-0.5">
-          {`${matchedCount} / ${gameCardsCount}`}
-        </div>
-      </header>
-      
-      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 my-2 flex-shrink-0">
-        <motion.div
-          className="bg-[#C8B4F3] h-2 rounded-full"
-          initial={{ width: '0%' }}
-          animate={{ width: `${progressPercentage}%` }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-        />
-      </div>
+      <GameHeader 
+        modeTitle="Cocokkan Pasangan"
+        currentIndex={matchedCount}
+        totalCards={gameCardsCount}
+        progress={progressPercentage}
+      />
       
       <main className="flex-grow grid grid-cols-2 gap-3 overflow-y-auto pt-2">
         {renderColumn(pairsA)}

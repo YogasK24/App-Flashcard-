@@ -3,30 +3,28 @@ import { motion } from 'framer-motion';
 import Icon from './Icon';
 import { useCardStore } from '../store/cardStore';
 import { useThemeStore } from '../store/themeStore';
-import { Deck, Card } from '../types';
 
-interface QuizHeaderProps {
-  currentCardIndex: number;
+interface GameHeaderProps {
+  modeTitle: string;
+  currentIndex: number;
   totalCards: number;
-  onOpenTimerSettings: () => void;
-  onOpenFontSizeSettings: () => void;
-  quizMode: 'sr' | 'simple' | 'blitz' | null;
-  quizDeck: Deck | null;
-  currentCard: Card | null;
+  progress?: number;
+  boxInfo?: string;
+  onOpenFontSizeSettings?: () => void;
+  onOpenTimerSettings?: () => void;
 }
 
-const QuizHeader: React.FC<QuizHeaderProps> = ({ currentCardIndex, totalCards, onOpenTimerSettings, onOpenFontSizeSettings, quizMode, quizDeck, currentCard }) => {
+const GameHeader: React.FC<GameHeaderProps> = ({ 
+    modeTitle, 
+    currentIndex, 
+    totalCards,
+    progress,
+    boxInfo,
+    onOpenFontSizeSettings, 
+    onOpenTimerSettings 
+}) => {
   const { endQuiz } = useCardStore(state => ({ endQuiz: state.endQuiz }));
   const { isTTSMuted, toggleTTSMute } = useThemeStore(state => ({ isTTSMuted: state.isTTSMuted, toggleTTSMute: state.toggleTTSMute }));
-
-  const getModeTitle = () => {
-    switch (quizMode) {
-      case 'sr': return 'Spaced Repetition';
-      case 'simple': return 'Simple Review';
-      case 'blitz': return 'Blitz Mode';
-      default: return 'Kuis';
-    }
-  };
 
   const baseIconButtonClasses = "p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors duration-200";
   const defaultIconTextColor = "text-gray-800 dark:text-[#E6E1E5]";
@@ -41,50 +39,56 @@ const QuizHeader: React.FC<QuizHeaderProps> = ({ currentCardIndex, totalCards, o
           <button onClick={endQuiz} aria-label="Kembali ke dek" className={`${baseIconButtonClasses} ${defaultIconTextColor}`}>
             <Icon name="chevronLeft" className="w-6 h-6" />
           </button>
-          <h2 className="text-xl font-medium text-gray-900 dark:text-[#E6E1E5] truncate">{getModeTitle()}</h2>
+          <h2 className="text-xl font-medium text-gray-900 dark:text-[#E6E1E5] truncate">{modeTitle}</h2>
         </div>
 
         <div className="flex items-center flex-shrink-0 space-x-1">
-          <button onClick={onOpenFontSizeSettings} aria-label="Ubah ukuran teks" className={`${baseIconButtonClasses} ${defaultIconTextColor}`}>
-            <Icon name="text" className="w-6 h-6" />
-          </button>
+          {onOpenFontSizeSettings && (
+            <button onClick={onOpenFontSizeSettings} aria-label="Ubah ukuran teks" className={`${baseIconButtonClasses} ${defaultIconTextColor}`}>
+              <Icon name="text" className="w-6 h-6" />
+            </button>
+          )}
           <button onClick={toggleTTSMute} aria-label={isTTSMuted ? "Bunyikan suara" : "Matikan suara"} className={`${baseIconButtonClasses} ${isTTSMuted ? mutedIconTextColor : defaultIconTextColor}`}>
             <Icon name={isTTSMuted ? 'volumeOff' : 'volumeUp'} className="w-6 h-6" />
           </button>
-          <button onClick={onOpenTimerSettings} aria-label="Pengaturan" className={`${baseIconButtonClasses} ${defaultIconTextColor}`}>
-            <Icon name="moreVert" className="w-6 h-6" />
-          </button>
+          {onOpenTimerSettings && (
+            <button onClick={onOpenTimerSettings} aria-label="Pengaturan" className={`${baseIconButtonClasses} ${defaultIconTextColor}`}>
+              <Icon name="moreVert" className="w-6 h-6" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Baris 2: Bar Statistik Detail */}
-      {quizDeck && currentCard && (
+      {(progress !== undefined || boxInfo) && (
         <div className="mt-2 mb-2 p-2 bg-gray-200 dark:bg-gray-800 rounded-lg">
           <div className="flex justify-between items-center w-full space-x-3">
             
             {/* Item 1: Progress */}
-            <div className="flex items-center space-x-2 flex-1 min-w-0">
-              <div className="w-full bg-gray-300 dark:bg-gray-600 rounded-full h-2">
-                <motion.div
-                  className="bg-[#C8B4F3] h-2 rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${quizDeck.progress}%` }}
-                  transition={{ duration: 0.5, ease: "easeInOut" }}
-                />
+            {progress !== undefined && (
+              <div className="flex items-center space-x-2 flex-1 min-w-0">
+                <div className="w-full bg-gray-300 dark:bg-gray-600 rounded-full h-2">
+                  <motion.div
+                    className="bg-[#C8B4F3] h-2 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                  />
+                </div>
+                <span className="text-sm font-mono text-gray-600 dark:text-gray-400">{Math.round(progress)}%</span>
               </div>
-              <span className="text-sm font-mono text-gray-600 dark:text-gray-400">{Math.round(quizDeck.progress)}%</span>
-            </div>
+            )}
             
             {/* Item 2: Card Counter */}
-            <div className="flex items-center border-l border-gray-400 dark:border-gray-600 pl-3">
-               <span className="text-sm font-mono text-gray-600 dark:text-gray-400 whitespace-nowrap">{`${currentCardIndex} / ${totalCards}`}</span>
+            <div className={`flex items-center ${progress !== undefined ? 'border-l border-gray-400 dark:border-gray-600 pl-3' : ''}`}>
+               <span className="text-sm font-mono text-gray-600 dark:text-gray-400 whitespace-nowrap">{`${currentIndex} / ${totalCards}`}</span>
             </div>
 
             {/* Item 3: Box/Level */}
-            {quizMode === 'sr' && (
+            {boxInfo && (
                <div className="flex items-center border-l border-gray-400 dark:border-gray-600 pl-3">
                     <span className="text-sm font-mono text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                        Box {currentCard.repetitions + 1}
+                        {boxInfo}
                     </span>
                </div>
             )}
@@ -95,4 +99,4 @@ const QuizHeader: React.FC<QuizHeaderProps> = ({ currentCardIndex, totalCards, o
   );
 };
 
-export default QuizHeader;
+export default GameHeader;

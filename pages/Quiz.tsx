@@ -4,17 +4,19 @@ import { useCardStore } from '../store/cardStore';
 import { useThemeStore } from '../store/themeStore';
 import { useQuizTimer } from '../hooks/useQuizTimer';
 import Flashcard from '../components/Flashcard';
-import QuizHeader from '../components/QuizHeader';
+import GameHeader from '../components/GameHeader';
 import QuizControls from '../components/QuizControls';
 import Icon from '../components/Icon';
 import TimerSettingsModal from '../components/TimerSettingsModal';
+import FontSizeModal from '../components/FontSizeModal';
 
 const Quiz: React.FC = () => {
-  const { quizCards, updateCardProgress, endQuiz, quizMode } = useCardStore(state => ({
+  const { quizCards, updateCardProgress, endQuiz, quizMode, quizDeck } = useCardStore(state => ({
     quizCards: state.quizCards,
     updateCardProgress: state.updateCardProgress,
     endQuiz: state.endQuiz,
     quizMode: state.quizMode,
+    quizDeck: state.quizDeck,
   }));
   const { timerDuration } = useThemeStore(state => ({ timerDuration: state.timerDuration }));
 
@@ -22,7 +24,8 @@ const Quiz: React.FC = () => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [direction, setDirection] = useState(1); // 1 for next, -1 for prev
   const [isProcessing, setIsProcessing] = useState(false); // Mencegah klik/aksi ganda
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isTimerSettingsModalOpen, setIsTimerSettingsModalOpen] = useState(false);
+  const [isFontSizeModalOpen, setIsFontSizeModalOpen] = useState(false);
 
   const totalCards = quizCards.length;
   const currentCard = quizCards[currentCardIndex];
@@ -45,6 +48,15 @@ const Quiz: React.FC = () => {
       opacity: 0,
       scale: 0.9,
     }),
+  };
+  
+  const getModeTitle = () => {
+    switch (quizMode) {
+      case 'sr': return 'Spaced Repetition';
+      case 'simple': return 'Simple Review';
+      case 'blitz': return 'Blitz Mode';
+      default: return 'Kuis';
+    }
   };
 
   if (currentCardIndex >= totalCards && totalCards > 0) {
@@ -96,13 +108,17 @@ const Quiz: React.FC = () => {
     }
   };
 
-  const { timeLeft } = useQuizTimer({
-    key: currentCard.id,
-    initialTime: timerDuration,
+  const { timeLeft, stopTimer, timerProgress } = useQuizTimer({
+    key: currentCard?.id,
+    initialTime: quizMode === 'blitz' ? timerDuration : 0,
     onTimeUp: handleTimeUp,
   });
 
-  const handleShowAnswer = () => {
+  const handleReveal = () => {
+    if (isProcessing) return;
+    if (quizMode === 'blitz') {
+      stopTimer();
+    }
     setIsFlipped(true);
   };
 
@@ -137,13 +153,17 @@ const Quiz: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full p-4 overflow-hidden">
-      <QuizHeader 
-        currentCardIndex={currentCardIndex + 1} 
+    <div className="flex flex-col h-full overflow-hidden">
+      <GameHeader
+        modeTitle={getModeTitle()}
+        currentIndex={currentCardIndex + 1}
         totalCards={totalCards}
-        onOpenSettings={() => setIsSettingsModalOpen(true)}
+        progress={quizDeck?.progress}
+        boxInfo={quizMode === 'sr' && currentCard ? `Box ${currentCard.repetitions + 1}` : undefined}
+        onOpenTimerSettings={() => setIsTimerSettingsModalOpen(true)}
+        onOpenFontSizeSettings={() => setIsFontSizeModalOpen(true)}
       />
-      <div className="flex-grow flex items-center justify-center relative">
+      <div className="flex-grow flex items-center justify-center relative px-4">
         <AnimatePresence initial={false} custom={direction} mode="wait">
           <motion.div
             key={currentCard.id}
@@ -168,19 +188,24 @@ const Quiz: React.FC = () => {
           </motion.div>
         </AnimatePresence>
       </div>
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 px-4 pb-4">
          <QuizControls
             isFlipped={isFlipped}
-            onShowAnswer={handleShowAnswer}
+            onShowAnswer={handleReveal}
             onRate={handleRate}
             isBlitzMode={quizMode === 'blitz'}
             disabled={isProcessing}
+            timerProgress={timerProgress}
           />
       </div>
 
       <TimerSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
+        isOpen={isTimerSettingsModalOpen}
+        onClose={() => setIsTimerSettingsModalOpen(false)}
+      />
+      <FontSizeModal
+        isOpen={isFontSizeModalOpen}
+        onClose={() => setIsFontSizeModalOpen(false)}
       />
     </div>
   );

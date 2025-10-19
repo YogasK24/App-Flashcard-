@@ -13,25 +13,58 @@ interface FlashcardProps {
   duration?: number;
 }
 
+// Memetakan pengaturan ke kelas Tailwind
+const sizeClassMap = {
+  front: {
+    small: 'text-2xl',
+    medium: 'text-4xl',
+    large: 'text-6xl',
+  },
+  backMain: {
+    small: 'text-xl',
+    medium: 'text-3xl',
+    large: 'text-5xl',
+  },
+  transcription: {
+    small: 'text-lg',
+    medium: 'text-xl',
+    large: 'text-2xl',
+  },
+  example: {
+    small: 'text-base',
+    medium: 'text-lg',
+    large: 'text-xl',
+  },
+};
+
+
 const Flashcard: React.FC<FlashcardProps> = ({ card, isFlipped, quizMode, timeLeft, duration }) => {
-  const { studyDirection } = useThemeStore(state => ({
+  const { studyDirection, quizFontSize, isTTSMuted } = useThemeStore(state => ({
     studyDirection: state.studyDirection,
+    quizFontSize: state.quizFontSize,
+    isTTSMuted: state.isTTSMuted,
   }));
 
   const frontContent = studyDirection === 'kanji' ? card.front : card.back;
   const backContentMain = studyDirection === 'kanji' ? card.back : card.front;
 
   useEffect(() => {
-    if (isFlipped) {
+    if (isFlipped && !isTTSMuted) {
       // Secara otomatis mengucapkan konten utama bagian belakang saat kartu dibalik
       speakText(backContentMain, 'ja-JP');
     }
-  }, [isFlipped, backContentMain]);
+  }, [isFlipped, backContentMain, isTTSMuted]);
 
   const handlePlaySound = () => {
     // Gunakan 'ja-JP' karena kontennya adalah Katakana/Kanji
     speakText(backContentMain, 'ja-JP');
   };
+
+  const frontSizeClass = sizeClassMap.front[quizFontSize] || sizeClassMap.front.medium;
+  const backMainSizeClass = sizeClassMap.backMain[quizFontSize] || sizeClassMap.backMain.medium;
+  const transcriptionSizeClass = sizeClassMap.transcription[quizFontSize] || sizeClassMap.transcription.medium;
+  const exampleSizeClass = sizeClassMap.example[quizFontSize] || sizeClassMap.example.medium;
+
 
   return (
     <div className="relative w-full h-full flex items-center justify-center">
@@ -50,25 +83,25 @@ const Flashcard: React.FC<FlashcardProps> = ({ card, isFlipped, quizMode, timeLe
         >
           {/* Depan kartu */}
           <div className="absolute w-full h-full bg-gray-200 dark:bg-[#4A4458] rounded-xl flex items-center justify-center p-6 backface-hidden">
-            <p className="text-4xl md:text-5xl font-bold text-center text-gray-900 dark:text-[#E6E1E5]">{frontContent}</p>
+            <p className={`font-bold text-center text-gray-900 dark:text-[#E6E1E5] ${frontSizeClass}`}>{frontContent}</p>
           </div>
           {/* Belakang kartu */}
           <div className="absolute w-full h-full bg-gray-100 dark:bg-[#2B2930] rounded-xl flex items-center p-6 backface-hidden rotate-y-180 overflow-y-auto">
             <div className="flex w-full items-start">
               {/* Konten Utama (Katakana, dll.) */}
               <div className="flex-1 text-center pr-4">
-                <p className="text-3xl font-bold text-gray-900 dark:text-[#E6E1E5]">{backContentMain}</p>
+                <p className={`font-bold text-gray-900 dark:text-[#E6E1E5] ${backMainSizeClass}`}>{backContentMain}</p>
                 
                 {(card.transcription || card.example) && (
                   <hr className="w-1/2 mx-auto my-3 border-gray-300 dark:border-gray-700" />
                 )}
                 
                 {card.transcription && (
-                  <p className="text-xl font-medium text-gray-700 dark:text-gray-300">[{card.transcription}]</p>
+                  <p className={`font-medium text-gray-700 dark:text-gray-300 ${transcriptionSizeClass}`}>[{card.transcription}]</p>
                 )}
                 
                 {card.example && (
-                  <p className="text-lg italic text-gray-500 dark:text-gray-400 mt-2 whitespace-pre-wrap">
+                  <p className={`italic text-gray-500 dark:text-gray-400 mt-2 whitespace-pre-wrap ${exampleSizeClass}`}>
                     {card.example}
                   </p>
                 )}

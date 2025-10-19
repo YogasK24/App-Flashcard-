@@ -11,12 +11,15 @@ interface UseQuizTimerProps {
  * @param key - Kunci unik (misalnya, ID kartu) untuk me-reset timer saat berubah.
  * @param initialTime - Waktu awal hitung mundur dalam detik.
  * @param onTimeUp - Callback yang akan dipanggil saat waktu habis.
- * @returns {timeLeft, duration, stopTimer} - Waktu yang tersisa, durasi awal, dan fungsi untuk menghentikan timer.
+ * @returns {timeLeft, duration, stopTimer, timerProgress} - Waktu yang tersisa, durasi awal, fungsi untuk menghentikan timer, dan progres timer (0-1).
  */
 export const useQuizTimer = ({ key, initialTime, onTimeUp }: UseQuizTimerProps) => {
   const [timeLeft, setTimeLeft] = useState(initialTime);
   const onTimeUpRef = useRef(onTimeUp);
   const intervalIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Hitung progres dari 0 (habis) hingga 1 (penuh)
+  const timerProgress = initialTime > 0 ? timeLeft / initialTime : 0;
 
   useEffect(() => {
     onTimeUpRef.current = onTimeUp;
@@ -49,5 +52,5 @@ export const useQuizTimer = ({ key, initialTime, onTimeUp }: UseQuizTimerProps) 
     return stopTimer;
   }, [key, initialTime, stopTimer]);
 
-  return { timeLeft, duration: initialTime, stopTimer };
+  return { timeLeft, duration: initialTime, stopTimer, timerProgress };
 };

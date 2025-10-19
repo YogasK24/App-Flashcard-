@@ -1,9 +1,14 @@
+import { useThemeStore } from '../store/themeStore';
+
 /**
  * Mengucapkan teks yang diberikan menggunakan API Text-to-Speech (TTS) bawaan browser.
  * @param text Teks yang akan diucapkan.
  * @param lang Kode bahasa (BCP 47) untuk ucapan, default ke 'ja-JP' untuk Bahasa Jepang.
  */
 export const speakText = (text: string, lang: string = 'ja-JP') => {
+  const isTTSMuted = useThemeStore.getState().isTTSMuted;
+  if (isTTSMuted) return; // Jangan bicara jika suara dimatikan
+
   // Periksa apakah API didukung oleh browser
   if ('speechSynthesis' in window) {
     // Batalkan ucapan yang sedang berlangsung untuk mencegah tumpang tindih
