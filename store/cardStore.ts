@@ -92,8 +92,8 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
                     const deckCards = cardsByDeckId[deck.id] || [];
                     deck.cardCount = deckCards.length;
                     deck.dueCount = deckCards.filter(c => c.dueDate <= now).length;
-                    const studiedCount = deckCards.filter(c => c.interval > 0).length;
-                    deck.progress = deck.cardCount > 0 ? (studiedCount / deck.cardCount) * 100 : 0;
+                    const masteredCount = deckCards.filter(c => c.repetitions >= 5).length;
+                    deck.progress = deck.cardCount > 0 ? (masteredCount / deck.cardCount) * 100 : 0;
                 } else {
                     // Reset statistik folder sebelum agregasi
                     deck.cardCount = 0;
@@ -124,18 +124,18 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
                 const children = childrenMap.get(deckId) || [];
                 let totalCardCount = 0;
                 let totalDueCount = 0;
-                let totalStudiedCount = 0;
+                let totalMasteredCount = 0;
 
                 for (const child of children) {
                     const childWithStats = calculateStatsForNode(child.id);
                     totalCardCount += childWithStats.cardCount;
                     totalDueCount += childWithStats.dueCount;
-                    totalStudiedCount += (childWithStats.progress / 100) * childWithStats.cardCount;
+                    totalMasteredCount += (childWithStats.progress / 100) * childWithStats.cardCount;
                 }
                 
                 deck.cardCount = totalCardCount;
                 deck.dueCount = totalDueCount;
-                deck.progress = totalCardCount > 0 ? (totalStudiedCount / totalCardCount) * 100 : 0;
+                deck.progress = totalCardCount > 0 ? (totalMasteredCount / totalCardCount) * 100 : 0;
                 
                 calculatedFolderIds.add(deckId);
                 return deck;

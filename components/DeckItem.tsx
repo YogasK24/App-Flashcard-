@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Deck } from '../types';
 import Icon from './Icon';
+import PlayButtonProgress from './PlayButtonProgress';
 
 interface DeckItemProps {
   deck: Deck;
@@ -39,11 +40,6 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
 
   const handleItemClick = () => {
     onItemClick(deck);
-  };
-  
-  const handlePlay = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onPlayClick(deck.id);
   };
   
   const highlightClasses = isCurrentlyHighlighted
@@ -97,18 +93,13 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
             <Icon name="chevronRight" className="w-6 h-6 text-gray-400 dark:text-[#948F99]" />
             </div>
         )}
-        <button
-            onClick={handlePlay}
-            disabled={deck.cardCount === 0 || isLoading}
-            className="p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black/5 dark:hover:bg-white/10 transition-all duration-200 ease-in-out hover:scale-105 active:scale-95"
-            aria-label={`Mulai kuis untuk ${deck.title}`}
-        >
-            {isLoading ? (
-            <Icon name="refresh" className="w-6 h-6 text-[#C8B4F3] animate-spin" />
-            ) : (
-            <Icon name="play" className="w-6 h-6 text-[#C8B4F3]" />
-            )}
-        </button>
+        <PlayButtonProgress
+          deckId={deck.id}
+          progressPercentage={deck.progress}
+          onPlayClick={onPlayClick}
+          disabled={deck.cardCount === 0}
+          isLoading={isLoading}
+        />
       </div>
     </motion.div>
   );
