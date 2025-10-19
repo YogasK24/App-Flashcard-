@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import Header from './components/Header';
@@ -23,12 +22,12 @@ import { initializeTTS } from './services/ttsService';
 import SortFilterModal from './components/SortFilterModal';
 import { db } from './services/databaseService';
 import CardSearchResultList from './components/CardSearchResultList';
-import * as XLSX from 'xlsx';
-import Papa from 'papaparse';
-import MainMenu from './components/MainMenu';
-import ImportDeckModal from './components/ImportDeckModal';
+import Sidebar from './components/Sidebar';
+import ImportMappingModal from './components/ImportMappingModal';
 import SearchScopeToggle from './components/SearchScopeToggle';
 import Icon from './components/Icon';
+import { parseFile, ParsedFileData } from './utils/importService';
+import SuccessNotification from './components/SuccessNotification';
 
 export interface CardSearchResult {
   card: Card;
@@ -127,6 +126,24 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
 };
 // =================================================================================
 
+const backdropVariants: Variants = {
+    visible: { opacity: 1 },
+    hidden: { opacity: 0 },
+    exit: { opacity: 0 }
+};
+  
+const sidebarVariants: Variants = {
+    hidden: { x: '-100%' },
+    visible: { 
+      x: 0, 
+      transition: { type: 'spring', damping: 30, stiffness: 250 }
+    },
+    exit: { 
+      x: '-100%',
+      transition: { type: 'spring', damping: 30, stiffness: 250 }
+    },
+};
+
 function App() {
   const { 
     quizDeck,
@@ -142,6 +159,8 @@ function App() {
     updateCard,
     deleteCard,
     recalculateAllDeckStats,
+    importDeckFromFile,
+    showNotification,
   } = useCardStore(state => ({
     quizDeck: state.quizDeck,
     gameType: state.gameType,
@@ -156,6 +175,8 @@ function App() {
     updateCard: state.updateCard,
     deleteCard: state.deleteCard,
     recalculateAllDeckStats: state.recalculateAllDeckStats,
+    importDeckFromFile: state.importDeckFromFile,
+    showNotification: state.showNotification,
   }));
   const { theme, sortOption, filterOption } = useThemeStore();
 
@@ -196,7 +217,7 @@ function App() {
 
   // State untuk fungsionalitas impor
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
-  const [importModalData, setImportModalData] = useState<{ headers: string[], rows: string[][], fileName: string } | null>(null);
+  const [importData, setImportData] = useState<ParsedFileData | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -523,128 +544,57 @@ function App() {
     setRefreshKey(k => k + 1);
   }, []);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
-
-      reader.onload = (e) => {
-          try {
-              const data = e.target?.result;
-              if (!data) throw new Error("Gagal membaca file.");
-
-              let headers: string[] = [];
-              let rows: string[][] = [];
-
-              if (fileExtension === 'csv') {
-                  const result = Papa.parse<string[]>(data as string, { header: false, skipEmptyLines: true });
-                  if (result.data.length > 0) {
-                      headers = result.data[0];
-                      rows = result.data.slice(1);
-                  }
-              } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-                  const workbook = XLSX.read(data, { type: 'binary' });
-                  const sheetName = workbook.SheetNames[0];
-                  const worksheet = workbook.Sheets[sheetName];
-                  const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
-                  if (json.length > 0) {
-                      headers = json[0];
-                      rows = json.slice(1);
-                  }
-              } else {
-                  alert("Tipe file tidak didukung. Silakan pilih file CSV atau Excel.");
-                  return;
-              }
-
-              const nonEmptyRows = rows.filter(row => row.some(cell => cell && String(cell).trim() !== ''));
-
-              if (headers.length > 0 && nonEmptyRows.length > 0) {
-                  setImportModalData({ headers, rows: nonEmptyRows, fileName: fileNameWithoutExt });
-              } else {
-                  alert("File yang dipilih kosong atau tidak memiliki header.");
-              }
-          } catch (error) {
-              console.error("Kesalahan saat mem-parsing file:", error);
-              alert("Terjadi kesalahan saat mem-parsing file.");
-          }
-      };
-
-      if (fileExtension === 'csv') {
-          reader.readAsText(file);
-      } else {
-          reader.readAsBinaryString(file);
-      }
-
-      event.target.value = ''; // Reset input file
-  };
-
-  const handleConfirmImport = async (deckTitle: string, frontHeader: string, backHeader: string) => {
-    if (!importModalData) return;
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
     try {
-        const { headers, rows } = importModalData;
-        const frontIndex = headers.indexOf(frontHeader);
-        const backIndex = headers.indexOf(backHeader);
-
-        if (frontIndex === -1 || backIndex === -1) {
-            alert("Pemetaan kolom tidak valid. Silakan pilih kolom yang berbeda untuk depan dan belakang.");
-            return;
-        }
-        
-        // Buat dek baru
-        const newDeckId = await db.decks.add({
-            title: deckTitle,
-            parentId: currentParentId,
-            type: 'deck',
-            cardCount: 0, // Akan dihitung ulang
-            progress: 0,
-            dueCount: 0,
-        } as Deck);
-
-        // Ubah setiap baris menjadi objek kartu
-        const newCards = rows.map(row => {
-            const front = String(row[frontIndex] || '').trim();
-            const back = String(row[backIndex] || '').trim();
-            
-            // Hanya buat kartu jika kedua sisi depan dan belakang memiliki konten
-            if (front && back) {
-                return {
-                    deckId: newDeckId,
-                    front,
-                    back,
-                    // Tetapkan nilai default untuk bidang SRS
-                    dueDate: new Date(),
-                    interval: 0,
-                    easeFactor: 2.5,
-                    repetitions: 0,
-                } as Card;
-            }
-            return null;
-        }).filter((card): card is Card => card !== null); // Hapus baris kosong
-
-        // Simpan semua kartu baru ke database
-        if (newCards.length > 0) {
-            await db.cards.bulkAdd(newCards);
-        }
-
-        // Perbarui statistik dan segarkan UI
-        await recalculateAllDeckStats();
-
-        // Beri tahu pengguna tentang keberhasilan
-        alert(`${newCards.length} kartu baru berhasil diimpor ke dek '${deckTitle}'!`);
-
+        const parsedData = await parseFile(file);
+        setImportData(parsedData);
     } catch (error) {
-        console.error("Gagal menyelesaikan impor:", error);
-        alert("Terjadi kesalahan saat mengimpor dek. Silakan coba lagi.");
+        console.error("Kesalahan saat memproses file:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        showNotification({ message: errorMessage, type: 'error' });
     } finally {
-        // Tutup modal dan segarkan daftar dek
-        setImportModalData(null);
-        setRefreshKey(k => k + 1);
+        // Reset input file agar file yang sama dapat dipilih lagi
+        if (event.target) {
+            event.target.value = '';
+        }
     }
   };
+
+  const finalizeImport = async (deckTitle: string, mapping: Record<string, string>) => {
+    if (!importData) return;
+
+    try {
+      const result = await importDeckFromFile(deckTitle, currentParentId, importData, mapping);
+
+      if (result.success) {
+        showNotification({
+          message: `${result.count} kartu berhasil diimpor ke dek '${deckTitle}'!`,
+          type: 'success',
+        });
+      } else {
+        showNotification({
+          message: `Gagal mengimpor: ${result.message || 'Terjadi kesalahan.'}`,
+          type: 'error',
+        });
+      }
+    } catch (error) {
+      console.error("Gagal menyelesaikan impor:", error);
+      showNotification({
+        message: "Terjadi kesalahan saat mengimpor dek.",
+        type: 'error',
+      });
+    } finally {
+      setImportData(null);
+      setRefreshKey(k => k + 1);
+    }
+  };
+  
+  const handleCloseSidebar = useCallback(() => {
+    setIsMainMenuOpen(false);
+  }, []);
 
   const isHeaderVisible = !cardToEdit && !gameType && !quizDeck;
 
@@ -759,18 +709,20 @@ function App() {
         }
       `}</style>
       
-      {isHeaderVisible && (
-        <Header 
-            onToggleSearch={handleToggleSearch}
-            onOpenSortFilter={handleOpenSortFilter}
-            onMenuClick={handleMenuClick}
-            deckId={selectedDeckId}
-            deckTitle={currentDeckForHeader?.title}
-            onBack={handleCardListBack}
-        />
-      )}
-      
-      {renderPage()}
+      <div className={`flex-1 flex flex-col min-h-0 transition-all duration-300 ease-in-out ${isMainMenuOpen ? 'blur-sm pointer-events-none' : ''}`}>
+        {isHeaderVisible && (
+          <Header 
+              onToggleSearch={handleToggleSearch}
+              onOpenSortFilter={handleOpenSortFilter}
+              onMenuClick={handleMenuClick}
+              deckId={selectedDeckId}
+              deckTitle={currentDeckForHeader?.title}
+              onBack={handleCardListBack}
+          />
+        )}
+        
+        {renderPage()}
+      </div>
 
       <AnimatePresence mode="wait">
         {contextMenuState.isVisible && contextMenuState.deckId !== null && (
@@ -865,25 +817,47 @@ function App() {
         accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
       />
       
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {isMainMenuOpen && (
-          <MainMenu
-            key="main-menu"
-            isOpen={isMainMenuOpen}
-            onClose={() => setIsMainMenuOpen(false)}
-            onImport={handleImportClick}
-          />
+          <>
+            <motion.div
+              key="sidebar-backdrop"
+              className="fixed inset-0 bg-black/60 z-40"
+              onClick={handleCloseSidebar}
+              variants={backdropVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+            />
+            <motion.aside
+              key="app-sidebar"
+              className="fixed top-0 left-0 h-screen w-3/4 md:w-80 bg-white dark:bg-[#2B2930] shadow-2xl z-50 flex flex-col"
+              variants={sidebarVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              aria-modal="true"
+              role="dialog"
+            >
+              <Sidebar
+                onClose={handleCloseSidebar}
+                onImport={handleImportClick}
+              />
+            </motion.aside>
+          </>
         )}
       </AnimatePresence>
 
       <AnimatePresence mode="wait">
-        {importModalData && (
-          <ImportDeckModal
-            key="import-deck-modal"
-            isOpen={!!importModalData}
-            onClose={() => setImportModalData(null)}
-            data={importModalData}
-            onConfirmImport={handleConfirmImport}
+        {importData && (
+          <ImportMappingModal
+            key="import-mapping-modal"
+            isOpen={!!importData}
+            onClose={() => setImportData(null)}
+            headers={importData.headers}
+            previewData={importData.previewData}
+            fileName={importData.fileName}
+            onSave={finalizeImport}
           />
         )}
       </AnimatePresence>
@@ -896,6 +870,8 @@ function App() {
           searchScope={searchScope}
           onSearchScopeChange={setSearchScope}
       />
+
+      <SuccessNotification />
     </div>
   );
 }

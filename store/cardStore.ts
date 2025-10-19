@@ -9,6 +9,24 @@ type GameType = 'pair-it' | 'guess-it' | 'recall-it' | 'type-it';
 interface AddDeckResult {
   success: boolean;
   message?: string;
+  deckId?: number;
+}
+
+interface ParsedImportData {
+    headers: string[];
+    allData: string[][];
+}
+
+interface ImportResult {
+    success: boolean;
+    count: number;
+    message?: string;
+}
+
+interface NotificationState {
+    isVisible: boolean;
+    message: string;
+    type: 'success' | 'error';
 }
 
 interface CardStoreState {
@@ -36,6 +54,10 @@ interface CardStoreState {
   getDeckStats: (deckId: number) => Promise<{ newCount: number; repeatCount: number; learnedCount: number; totalCount: number; }>;
   recalculateAllDeckStats: () => Promise<void>;
   getCardCountInHierarchy: (folderId: number) => Promise<number>;
+  importDeckFromFile: (deckTitle: string, parentId: number | null, parsedData: ParsedImportData, mapping: Record<string, string>) => Promise<ImportResult>;
+  notification: NotificationState | null;
+  showNotification: (payload: Omit<NotificationState, 'isVisible'>) => void;
+  hideNotification: () => void;
 }
 
 export const useCardStore = create<CardStoreState>((set, get) => ({
@@ -43,6 +65,11 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
   quizCards: [],
   quizMode: null,
   gameType: null,
+  notification: null,
+
+  showNotification: (payload) => set({ notification: { ...payload, isVisible: true } }),
+  // Saat menyembunyikan, atur isVisible ke false untuk memungkinkan AnimatePresence memicu animasi keluar.
+  hideNotification: () => set(state => ({ notification: state.notification ? { ...state.notification, isVisible: false } : null })),
 
   recalculateAllDeckStats: async () => {
     try {
@@ -174,12 +201,9 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
         progress: 0,
         dueCount: 0,
       };
-      await db.decks.add(newDeckData as Deck);
-      // FIX: Selalu panggil recalculateAllDeckStats setelah menambahkan item baru
-      // untuk memastikan semua statistik (terutama folder induk) diperbarui
-      // dan mencegah inkonsistensi data.
+      const newDeckId = await db.decks.add(newDeckData as Deck);
       await get().recalculateAllDeckStats();
-      return { success: true };
+      return { success: true, deckId: newDeckId };
     } catch (error) {
       console.error("Gagal menambahkan dek:", error);
       const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui.";
@@ -535,6 +559,88 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
     } catch (error) {
         console.error(`Gagal mendapatkan statistik untuk item ${deckId}:`, error);
         return { newCount: 0, repeatCount: 0, learnedCount: 0, totalCount: 0 };
+    }
+  },
+  
+  importDeckFromFile: async (deckTitle, parentId, parsedData, mapping) => {
+    try {
+      const { headers, allData } = parsedData;
+
+      const getIndex = (fieldKey: string) => mapping[fieldKey] ? headers.indexOf(mapping[fieldKey]) : -1;
+
+      const frontIndex = getIndex('kanji');
+      const backIndex = getIndex('katakana');
+      const transcriptionIndex = getIndex('transcription');
+      const exampleIndex = getIndex('exampleSentence');
+
+      if (frontIndex === -1 || backIndex === -1) {
+        return { success: false, count: 0, message: "Pemetaan kolom tidak valid. Sisi Depan dan Sisi Belakang wajib diisi." };
+      }
+
+      let newCards: Card[] = [];
+      let createdDeckId: number | undefined;
+
+      await db.transaction('rw', db.decks, db.cards, async () => {
+        // Periksa apakah ada dek duplikat di dalam transaksi
+        let existing: Deck | undefined;
+        if (parentId === null) {
+            existing = await db.decks.filter(deck => deck.parentId === null && deck.title === deckTitle).first();
+        } else {
+            existing = await db.decks.where({ parentId, title: deckTitle }).first();
+        }
+
+        if (existing) {
+          throw new Error(`Dek dengan nama "${deckTitle}" sudah ada di folder ini.`);
+        }
+
+        // Buat dek baru
+        createdDeckId = await db.decks.add({
+          title: deckTitle,
+          parentId: parentId,
+          type: 'deck',
+          cardCount: 0,
+          progress: 0,
+          dueCount: 0,
+        } as Deck);
+
+        // Petakan data ke kartu
+        newCards = allData.map(row => {
+          const front = String(row[frontIndex] || '').trim();
+          const back = String(row[backIndex] || '').trim();
+          
+          if (front && back) {
+            return {
+              deckId: createdDeckId!,
+              front,
+              back,
+              transcription: transcriptionIndex > -1 ? String(row[transcriptionIndex] || '').trim() : undefined,
+              example: exampleIndex > -1 ? String(row[exampleIndex] || '').trim() : undefined,
+              dueDate: new Date(),
+              interval: 0,
+              easeFactor: 2.5,
+              repetitions: 0,
+            } as Card;
+          }
+          return null;
+        }).filter((card): card is Card => card !== null);
+
+        // Tambahkan kartu secara massal
+        if (newCards.length > 0) {
+          await db.cards.bulkAdd(newCards);
+        }
+      });
+
+      // Hitung ulang statistik sekali setelah transaksi selesai
+      if (createdDeckId !== undefined) {
+         await get().recalculateAllDeckStats();
+      }
+
+      return { success: true, count: newCards.length };
+
+    } catch (error) {
+      console.error("Gagal mengimpor dek dari file di store:", error);
+      const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui saat mengimpor.";
+      return { success: false, count: 0, message: errorMessage };
     }
   },
 
