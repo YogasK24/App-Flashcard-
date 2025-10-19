@@ -122,37 +122,83 @@ export const setupGameData = async (
 };
 
 /**
+ * Interface untuk objek opsi tebakan.
+ */
+export interface GuessOption {
+  id: string; // ID unik, bisa dari kartu atau placeholder
+  text: string;
+  isCorrect: boolean;
+}
+
+
+/**
  * Menghasilkan satu set opsi pilihan ganda untuk kartu yang diberikan.
+ * Memastikan semua opsi unik dan berbeda dari jawaban yang benar.
  * @param correctCard Kartu yang jawabannya benar.
  * @param allCards Daftar semua kartu yang mungkin untuk dipilih sebagai pengalih perhatian.
  * @param answerField Bidang kartu ('front' atau 'back') yang akan digunakan untuk jawaban.
- * @returns Array yang berisi 4 string opsi, dengan jawaban yang benar disertakan dan diacak.
+ * @returns Array yang berisi 4 objek GuessOption, dengan jawaban yang benar disertakan dan diacak.
  */
-export const generateGuessOptions = (correctCard: Card, allCards: Card[], answerField: 'front' | 'back'): string[] => {
-  const correctAnswer = correctCard[answerField];
+export const generateGuessOptions = (correctCard: Card, allCards: Card[], answerField: 'front' | 'back'): GuessOption[] => {
+  const correctAnswerText = correctCard[answerField];
+  const correctOption: GuessOption = {
+    id: `card-${correctCard.id}`,
+    text: correctAnswerText,
+    isCorrect: true,
+  };
 
-  // Buat daftar pengalih perhatian dari kartu lain, pastikan ada isinya
-  const distractors = allCards
-    .filter(card => card.id !== correctCard.id && card[answerField].trim() !== '')
-    .map(card => card[answerField]);
-  
-  const shuffledDistractors = shuffleArray(distractors).slice(0, 3);
+  // 1. Filter kandidat distraktor
+  const distractorCandidates = allCards.filter(card => 
+    card.id !== correctCard.id &&
+    card[answerField].trim() !== '' &&
+    card[answerField] !== correctAnswerText
+  );
 
-  const options = shuffleArray([correctAnswer, ...shuffledDistractors]);
+  // Gunakan Map untuk memastikan teks distraktor unik
+  const uniqueDistractorsMap = new Map<string, Card>();
+  distractorCandidates.forEach(card => {
+    if (!uniqueDistractorsMap.has(card[answerField])) {
+      uniqueDistractorsMap.set(card[answerField], card);
+    }
+  });
+  const uniqueDistractors = Array.from(uniqueDistractorsMap.values());
+
+  // 2. Pilih 3 distraktor secara acak
+  const selectedDistractors = shuffleArray(uniqueDistractors).slice(0, 3);
   
-  // Pastikan kita selalu punya 4 opsi, bahkan jika tidak cukup pengalih perhatian
-  // (duplikat jawaban yang benar jika perlu)
-  while (options.length < 4 && options.length > 0) {
-    options.push(correctAnswer);
+  const distractorOptions: GuessOption[] = selectedDistractors.map(card => ({
+    id: `card-${card.id}`,
+    text: card[answerField],
+    isCorrect: false,
+  }));
+
+  let finalOptions: GuessOption[] = [correctOption, ...distractorOptions];
+
+  // 3. Finalisasi: Tambahkan placeholder jika kurang dari 4 opsi
+  const placeholderOptions = ["Opsi A", "Opsi B", "Opsi C", "Pilihan Lain"];
+  let placeholderIndex = 0;
+  const existingTexts = new Set(finalOptions.map(opt => opt.text));
+
+  while (finalOptions.length < 4) {
+    const placeholder = placeholderOptions[placeholderIndex++];
+    if (!existingTexts.has(placeholder)) {
+      finalOptions.push({
+        id: `placeholder-${placeholderIndex}`,
+        text: placeholder,
+        isCorrect: false,
+      });
+      existingTexts.add(placeholder);
+    } else if (placeholderIndex >= placeholderOptions.length) {
+      // Fallback jika semua placeholder default sudah ada
+      const newPlaceholder = `Pilihan ${finalOptions.length + 1}`;
+      finalOptions.push({
+        id: `placeholder-${newPlaceholder}`,
+        text: newPlaceholder,
+        isCorrect: false,
+      });
+    }
   }
-  
-  // Jika hanya ada 1 kartu dalam kuis, ini akan menjadi satu-satunya opsi
-  if (options.length === 1) {
-      // Tambahkan beberapa placeholder untuk mengisi
-      options.push("Opsi A", "Opsi B", "Opsi C");
-      return shuffleArray(options.slice(0,4));
-  }
 
-
-  return options;
+  // Acak urutan akhir
+  return shuffleArray(finalOptions);
 };

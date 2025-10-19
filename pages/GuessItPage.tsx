@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
 import { useThemeStore } from '../store/themeStore';
-import { generateGuessOptions } from '../utils/gameUtils';
+import { generateGuessOptions, GuessOption } from '../utils/gameUtils';
 import Icon from '../components/Icon';
 import GameHeader from '../components/GameHeader';
 import { useQuizTimer } from '../hooks/useQuizTimer';
@@ -20,7 +20,7 @@ const GuessItPage: React.FC = () => {
 
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [correctAnswerCount, setCorrectAnswerCount] = useState(0);
-  const [options, setOptions] = useState<string[]>([]);
+  const [options, setOptions] = useState<GuessOption[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [direction, setDirection] = useState(1);
@@ -72,14 +72,13 @@ const GuessItPage: React.FC = () => {
     }
   }, [currentCard, quizCards, answerField]);
 
-  const handleOptionSelect = async (selectedAnswerByUser: string) => {
+  const handleOptionSelect = async (selectedOption: GuessOption) => {
     if (isAnswered) return;
     stopTimer();
     setIsAnswered(true);
-    setSelectedAnswer(selectedAnswerByUser);
+    setSelectedAnswer(selectedOption.text);
 
-    const correctAnswer = currentCard[answerField];
-    const isCorrect = selectedAnswerByUser === correctAnswer;
+    const isCorrect = selectedOption.isCorrect;
     
     if (isCorrect) {
       setCorrectAnswerCount(prev => prev + 1);
@@ -190,8 +189,8 @@ const GuessItPage: React.FC = () => {
           </AnimatePresence>
           
           <div className="grid grid-cols-1 md:grid-cols-2 mt-2">
-            {options.map((option, index) => {
-              const isCorrectAnswer = currentCard && option === currentCard[answerField];
+            {options.map((option) => {
+              const isCorrectAnswer = option.isCorrect;
               
               const baseClasses = "w-full p-4 m-2 rounded-xl shadow-md border transition-all duration-300 text-lg font-semibold";
               
@@ -200,7 +199,7 @@ const GuessItPage: React.FC = () => {
               if (isAnswered) {
                 if (isCorrectAnswer) {
                   stateClasses = "bg-green-500/80 text-white border-transparent";
-                } else if (selectedAnswer === option) {
+                } else if (selectedAnswer === option.text) {
                   stateClasses = "bg-red-500/80 text-white border-transparent";
                 } else {
                   stateClasses = "bg-white dark:bg-[#2B2930] text-gray-900 dark:text-[#E6E1E5] border-gray-700 dark:border-gray-300 opacity-60";
@@ -209,13 +208,13 @@ const GuessItPage: React.FC = () => {
 
               return (
                 <motion.button
-                  key={index}
+                  key={option.id}
                   onClick={() => handleOptionSelect(option)}
                   disabled={isAnswered}
                   className={`${baseClasses} ${stateClasses}`}
                   whileTap={!isAnswered ? { scale: 0.95 } : {}}
                 >
-                  {option}
+                  {option.text}
                 </motion.button>
               );
             })}
