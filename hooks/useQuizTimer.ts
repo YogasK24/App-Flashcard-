@@ -1,56 +1,79 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-interface UseQuizTimerProps {
-  key: any;
-  initialTime: number;
-  onTimeUp: () => void;
-}
-
 /**
- * Hook kustom untuk mengelola timer hitung mundur untuk kuis.
- * @param key - Kunci unik (misalnya, ID kartu) untuk me-reset timer saat berubah.
- * @param initialTime - Waktu awal hitung mundur dalam detik.
- * @param onTimeUp - Callback yang akan dipanggil saat waktu habis.
- * @returns {timeLeft, duration, stopTimer, timerProgress} - Waktu yang tersisa, durasi awal, fungsi untuk menghentikan timer, dan progres timer (0-1).
+ * Hook kustom untuk mengelola timer hitung mundur untuk kuis dengan kontrol imperatif.
+ * @param duration Durasi awal hitung mundur dalam detik.
+ * @param onTimeUp Callback yang akan dipanggil saat waktu habis.
+ * @returns { timeLeft, timerProgress, start, stop, reset, isRunning } - State dan kontrol untuk timer.
  */
-export const useQuizTimer = ({ key, initialTime, onTimeUp }: UseQuizTimerProps) => {
-  const [timeLeft, setTimeLeft] = useState(initialTime);
+export const useQuizTimer = (duration: number, onTimeUp: () => void) => {
+  const durationMs = duration * 1000;
+  const [timeLeftMs, setTimeLeftMs] = useState(durationMs);
+  const [isRunning, setIsRunning] = useState(false);
+
+  // Gunakan refs untuk nilai yang berubah tetapi tidak boleh memicu render ulang di dalam loop
+  const timerRef = useRef<number | null>(null);
   const onTimeUpRef = useRef(onTimeUp);
-  const intervalIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  onTimeUpRef.current = onTimeUp;
+  
+  const endTimeRef = useRef<number>(0);
+  const isRunningRef = useRef(false); // Ref untuk melacak status berjalan tanpa menyebabkan pembuatan ulang callback
 
-  // Hitung progres dari 0 (habis) hingga 1 (penuh)
-  const timerProgress = initialTime > 0 ? timeLeft / initialTime : 0;
-
-  useEffect(() => {
-    onTimeUpRef.current = onTimeUp;
-  }, [onTimeUp]);
-
-  const stopTimer = useCallback(() => {
-    if (intervalIdRef.current) {
-      clearInterval(intervalIdRef.current);
-      intervalIdRef.current = null;
+  const stop = useCallback(() => {
+    if (timerRef.current) {
+      cancelAnimationFrame(timerRef.current);
+      timerRef.current = null;
+    }
+    // Hanya perbarui state jika benar-benar berubah untuk menghindari render yang tidak perlu
+    if (isRunningRef.current) {
+      isRunningRef.current = false;
+      setIsRunning(false);
     }
   }, []);
 
+  // Loop animasi
+  const animate = useCallback(() => {
+    const newTimeLeft = Math.max(0, endTimeRef.current - Date.now());
+    setTimeLeftMs(newTimeLeft);
+
+    if (newTimeLeft > 0) {
+      timerRef.current = requestAnimationFrame(animate);
+    } else {
+      stop(); // Gunakan fungsi stop terpusat
+      onTimeUpRef.current();
+    }
+  }, [stop]);
+
+  const start = useCallback(() => {
+    // Mencegah beberapa loop berjalan menggunakan ref
+    if (isRunningRef.current) return;
+    
+    isRunningRef.current = true;
+    setTimeLeftMs(durationMs); // Atur ulang status visual segera
+    endTimeRef.current = Date.now() + durationMs;
+    setIsRunning(true);
+    // Jalankan loop animasi
+    timerRef.current = requestAnimationFrame(animate);
+  }, [durationMs, animate]);
+
+  const reset = useCallback(() => {
+    stop();
+    setTimeLeftMs(durationMs);
+  }, [durationMs, stop]);
+  
+  // Efek pembersihan
   useEffect(() => {
-    stopTimer(); // Hentikan timer sebelumnya jika ada
-    setTimeLeft(initialTime);
+    return () => stop();
+  }, [stop]);
 
-    if (initialTime <= 0) return;
+  const timerProgress = durationMs > 0 ? Math.max(0, timeLeftMs / durationMs) : 0;
 
-    intervalIdRef.current = setInterval(() => {
-      setTimeLeft(prevTime => {
-        if (prevTime <= 1) {
-          if (intervalIdRef.current) clearInterval(intervalIdRef.current);
-          onTimeUpRef.current();
-          return 0;
-        }
-        return prevTime - 1;
-      });
-    }, 1000);
-
-    return stopTimer;
-  }, [key, initialTime, stopTimer]);
-
-  return { timeLeft, duration: initialTime, stopTimer, timerProgress };
+  return { 
+    timeLeft: Math.ceil(timeLeftMs / 1000),
+    timerProgress,
+    start, 
+    stop, 
+    reset, 
+    isRunning 
+  };
 };

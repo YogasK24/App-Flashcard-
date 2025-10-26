@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import Icon from './Icon';
 import { useCardStore } from '../store/cardStore';
 import { useThemeStore } from '../store/themeStore';
+import HorizontalTimerBar from './HorizontalTimerBar';
 
 interface GameHeaderProps {
   modeTitle: string;
@@ -12,6 +13,8 @@ interface GameHeaderProps {
   boxInfo?: string;
   onOpenFontSizeSettings?: () => void;
   onOpenTimerSettings?: () => void;
+  timerProgress?: number;
+  showTimerBar?: boolean;
 }
 
 const GameHeader: React.FC<GameHeaderProps> = ({ 
@@ -21,7 +24,9 @@ const GameHeader: React.FC<GameHeaderProps> = ({
     progress,
     boxInfo,
     onOpenFontSizeSettings, 
-    onOpenTimerSettings 
+    onOpenTimerSettings,
+    timerProgress,
+    showTimerBar
 }) => {
   const { endQuiz } = useCardStore(state => ({ endQuiz: state.endQuiz }));
   const { isTTSMuted, toggleTTSMute } = useThemeStore(state => ({ isTTSMuted: state.isTTSMuted, toggleTTSMute: state.toggleTTSMute }));
@@ -67,7 +72,14 @@ const GameHeader: React.FC<GameHeaderProps> = ({
             {/* Item 1: Progress */}
             {progress !== undefined && (
               <div className="flex items-center space-x-2 flex-1 min-w-0">
-                <div className="w-full bg-gray-300 dark:bg-gray-600 rounded-full h-2">
+                <div 
+                    className="w-full bg-gray-300 dark:bg-gray-600 rounded-full h-2"
+                    role="progressbar"
+                    aria-label="Progres kuis"
+                    aria-valuenow={Math.round(progress)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                >
                   <motion.div
                     className="bg-[#C8B4F3] h-2 rounded-full"
                     initial={{ width: 0 }}
@@ -75,25 +87,32 @@ const GameHeader: React.FC<GameHeaderProps> = ({
                     transition={{ duration: 0.5, ease: "easeInOut" }}
                   />
                 </div>
-                <span className="text-sm font-mono text-gray-600 dark:text-gray-400">{Math.round(progress)}%</span>
+                <span className="text-sm font-mono text-gray-700 dark:text-gray-300">{Math.round(progress)}%</span>
               </div>
             )}
             
             {/* Item 2: Card Counter */}
             <div className={`flex items-center ${progress !== undefined ? 'border-l border-gray-400 dark:border-gray-600 pl-3' : ''}`}>
-               <span className="text-sm font-mono text-gray-600 dark:text-gray-400 whitespace-nowrap">{`${currentIndex} / ${totalCards}`}</span>
+               <span className="text-sm font-mono text-gray-700 dark:text-gray-300 whitespace-nowrap">{`${currentIndex} / ${totalCards}`}</span>
             </div>
 
             {/* Item 3: Box/Level */}
             {boxInfo && (
                <div className="flex items-center border-l border-gray-400 dark:border-gray-600 pl-3">
-                    <span className="text-sm font-mono text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                    <span className="text-sm font-mono text-gray-700 dark:text-gray-300 whitespace-nowrap">
                         {boxInfo}
                     </span>
                </div>
             )}
           </div>
         </div>
+      )}
+      
+      {/* Baris 3: Timer Bar (Baru) */}
+      {showTimerBar && timerProgress !== undefined && (
+          <div className="mt-2">
+            <HorizontalTimerBar timerProgress={timerProgress} />
+          </div>
       )}
     </header>
   );

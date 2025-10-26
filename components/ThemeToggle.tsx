@@ -16,6 +16,7 @@ const moonVariants: Variants = {
 
 const ThemeToggle: React.FC = () => {
   const { theme, toggleTheme } = useThemeStore();
+  const label = theme === 'dark' ? "Ganti ke mode terang" : "Ganti ke mode gelap";
 
   return (
     <button
@@ -23,7 +24,7 @@ const ThemeToggle: React.FC = () => {
         e.stopPropagation();
         toggleTheme();
       }}
-      aria-label="Ganti tema"
+      aria-label={label}
       className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 relative w-10 h-10 flex items-center justify-center overflow-hidden transition-colors duration-200"
     >
       <AnimatePresence initial={false} mode="wait">

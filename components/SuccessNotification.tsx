@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
 import Icon from './Icon';
 
-const notificationVariants = {
+// Fix: Explicitly type `notificationVariants` with `Variants` from framer-motion.
+const notificationVariants: Variants = {
   initial: { y: -50, opacity: 0 },
   animate: { y: 0, opacity: 1, transition: { type: 'spring', damping: 30, stiffness: 250 } },
   exit: { y: -50, opacity: 0, transition: { type: 'spring', damping: 30, stiffness: 250 } }

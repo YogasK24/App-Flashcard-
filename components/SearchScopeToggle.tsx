@@ -26,7 +26,7 @@ const SearchScopeToggle: React.FC<SearchScopeToggleProps> = ({ currentScope, onS
             ${
               currentScope === value
                 ? 'bg-violet-600 text-white font-medium'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                : 'bg-gray-200 dark:bg-[#4A4458] text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-[#3A3841]'
             }
           `}
         >

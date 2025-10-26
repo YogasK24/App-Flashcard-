@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import Icon from './Icon';
@@ -12,6 +11,13 @@ interface HeaderProps {
   deckId: number | null;
   deckTitle?: string;
   onBack?: () => void;
+  onOpenCardSortFilter?: () => void;
+  isSelectionMode?: boolean;
+  onToggleSelectionMode?: () => void;
+  selectedCardCount?: number;
+  onBulkMove?: () => void;
+  onBulkDelete?: () => void;
+  onSelectAll?: () => void;
 }
 
 const headerVariants: Variants = {
@@ -27,7 +33,14 @@ const Header: React.FC<HeaderProps> = ({
     onMenuClick,
     deckId,
     deckTitle,
-    onBack
+    onBack,
+    onOpenCardSortFilter,
+    isSelectionMode,
+    onToggleSelectionMode,
+    selectedCardCount,
+    onBulkMove,
+    onBulkDelete,
+    onSelectAll
 }) => {
   const iconButtonClasses = "p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors duration-200";
   const isCardListView = deckId !== null;
@@ -41,12 +54,46 @@ const Header: React.FC<HeaderProps> = ({
                 initial="initial"
                 animate="animate"
                 exit="exit"
-                className="flex items-center space-x-4 w-full h-[52px]" // Tinggi eksplisit untuk konsistensi
+                className="flex items-center justify-between w-full h-[52px]"
             >
-                <button onClick={onBack} className={iconButtonClasses} aria-label="Kembali">
-                    <Icon name="chevronLeft" className="w-6 h-6" />
-                </button>
-                <h2 className="text-xl font-semibold truncate">{deckTitle || 'Memuat...'}</h2>
+                {isSelectionMode ? (
+                    <>
+                        <div className="flex items-center space-x-4 min-w-0">
+                            <button onClick={onToggleSelectionMode} className={iconButtonClasses} aria-label="Batalkan Pilihan">
+                                <Icon name="plus" className="w-6 h-6 rotate-45" />
+                            </button>
+                            <h2 className="text-xl font-semibold truncate">{selectedCardCount} dipilih</h2>
+                        </div>
+                        <div className="flex items-center">
+                            <button onClick={onBulkMove} className={iconButtonClasses} aria-label="Pindahkan kartu">
+                                <Icon name="swap" className="w-6 h-6" />
+                            </button>
+                            <button onClick={onBulkDelete} className={iconButtonClasses} aria-label="Hapus kartu">
+                                <Icon name="trash" className="w-6 h-6" />
+                            </button>
+                            <button onClick={onSelectAll} className={iconButtonClasses} aria-label="Pilih semua">
+                                <Icon name="checkBoxOutline" className="w-6 h-6" />
+                            </button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="flex items-center space-x-4 min-w-0">
+                            <button onClick={onBack} className={iconButtonClasses} aria-label="Kembali">
+                                <Icon name="chevronLeft" className="w-6 h-6" />
+                            </button>
+                            <h2 className="text-xl font-semibold truncate">{deckTitle || 'Memuat...'}</h2>
+                        </div>
+                        <div className="flex items-center">
+                            <button onClick={onOpenCardSortFilter} className={iconButtonClasses} aria-label="Urutkan kartu">
+                                <Icon name="tune" className="w-6 h-6" />
+                            </button>
+                            <button onClick={onToggleSelectionMode} className={iconButtonClasses} aria-label="Pilih kartu">
+                                <Icon name="checkBoxBlankOutline" className="w-6 h-6" /> 
+                            </button>
+                        </div>
+                    </>
+                )}
             </motion.div>
         );
     }
@@ -97,7 +144,7 @@ const Header: React.FC<HeaderProps> = ({
     <div className={placeholderHeight}>
       {/* Header sebenarnya diposisikan secara absolut dan dapat mengubah ketinggian untuk tumpang tindih dengan konten di bawahnya. */}
       {/* Transisi CSS dihapus untuk memberikan kendali penuh pada Framer Motion, mencegah konflik. */}
-      <header className={`absolute top-0 left-0 w-full z-20 bg-gray-50 dark:bg-[#1C1B1F] text-gray-900 dark:text-[#E6E1E5] px-4 pt-2 flex items-start`}>
+      <header role="banner" className={`absolute top-0 left-0 w-full z-20 bg-gray-50 dark:bg-[#1C1B1F] text-gray-900 dark:text-[#E6E1E5] px-4 pt-2 flex items-start`}>
         <AnimatePresence mode="wait">
           {renderHeaderContent()}
         </AnimatePresence>

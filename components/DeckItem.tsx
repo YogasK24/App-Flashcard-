@@ -16,11 +16,6 @@ interface DeckItemProps {
 const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMenu, onPlayClick, openingDeckId, highlightedItemId }) => {
   const [isFlashing, setIsFlashing] = useState(false);
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 },
-  };
-
   const isContainer = deck.type === 'folder';
   const isLoading = openingDeckId === deck.id;
   const isCurrentlyHighlighted = highlightedItemId === deck.id;
@@ -54,27 +49,32 @@ const DeckItem: React.FC<DeckItemProps> = ({ deck, onItemClick, onShowContextMen
   return (
     <motion.div 
       id={`deck-item-${deck.id}`}
-      variants={itemVariants}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
       transition={{ duration: 0.2 }}
       onClick={handleItemClick}
       onContextMenu={(e) => {
         e.preventDefault();
         onShowContextMenu(e, deck.id);
       }}
-      className={`${flashClasses} p-4 rounded-lg flex items-center space-x-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-[#3A3841] transition-colors duration-300 ease-in-out shadow-sm ${highlightClasses}`}
+      className={`${flashClasses} p-4 rounded-lg flex items-center space-x-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-[#3A3841] transition-all duration-300 ease-in-out shadow-sm ${highlightClasses} overflow-hidden h-full`}
       role="button"
       tabIndex={0}
-      onKeyPress={(e) => (e.key === 'Enter') && handleItemClick()}
+      onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && handleItemClick()}
+      aria-label={`Buka ${isContainer ? 'folder' : 'dek'} ${deck.title}`}
     >
-      <Icon name={isContainer ? 'folder' : 'document'} className="w-6 h-6 text-[#C8B4F3]" />
-      <div className="flex-grow">
-        <h3 className="text-gray-900 dark:text-[#E6E1E5] font-semibold">{deck.title}</h3>
+      <Icon name={isContainer ? 'folder' : 'document'} className="w-6 h-6 text-violet-500 dark:text-violet-400" />
+      <div className="flex-grow min-w-0">
+        <h3 className="text-gray-900 dark:text-[#E6E1E5] font-semibold truncate">{deck.title}</h3>
         
-        <div className="text-xs text-gray-500 dark:text-[#948F99] mt-1">
+        <div className="flex items-center space-x-3 text-xs text-gray-500 dark:text-[#948F99] mt-1">
           <span>{deck.cardCount} kartu</span>
-          {deck.dueCount > 0 && <span className="ml-2 text-yellow-500 dark:text-yellow-400">{deck.dueCount} perlu diulang</span>}
+          {deck.dueCount > 0 && (
+            <div className="flex items-center bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                <Icon name="bell" className="w-3 h-3 mr-1" />
+                <span className="font-bold">{deck.dueCount} Perlu diulang</span>
+            </div>
+          )}
         </div>
         
         {!isContainer && (

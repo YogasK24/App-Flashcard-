@@ -21,6 +21,28 @@
         -moz-user-select: none;
         -ms-user-select: none;
       }
+      /* Gaya fokus yang dapat diakses untuk pengguna keyboard */
+      *:focus-visible {
+        outline: 3px solid #A78BFA; /* violet-400 */
+        outline-offset: 2px;
+        border-radius: 4px;
+        box-shadow: 0 0 0 4px rgba(28, 27, 31, 0.6);
+      }
+      /* Hapus outline untuk pengguna mouse/sentuh */
+      *:focus:not(:focus-visible) {
+        outline: none;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+      }
     </style>
   <script type="importmap">
 {
@@ -33,9 +55,10 @@
     "zustand": "https://aistudiocdn.com/zustand@^4.5.4",
     "zustand/middleware": "https://aistudiocdn.com/zustand@^4.5.4/middleware.js",
     "framer-motion": "https://aistudiocdn.com/framer-motion@^11.3.8",
-    "zustand/": "https://aistudiocdn.com/zustand@^5.0.8/",
     "xlsx": "https://cdn.sheetjs.com/xlsx-latest/package/xlsx.mjs",
-    "papaparse": "https://aistudiocdn.com/papaparse@^5.4.1"
+    "papaparse": "https://aistudiocdn.com/papaparse@^5.4.1",
+    "zustand/": "https://aistudiocdn.com/zustand@^5.0.8/",
+    "react-window": "https://aistudiocdn.com/react-window@^1.8.10"
   }
 }
 </script>

@@ -66,32 +66,213 @@ export const generateCardFromText = async (text: string): Promise<{ front: strin
     }
 };
 
+export const generateFullCardFromText = async (
+  sourceText: string
+): Promise<{ kanji: string; katakana: string; transcription: string } | null> => {
+  if (!ai) return null;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Dari teks berikut, ekstrak atau buat satu kata kunci dan definisinya, serta terjemahan dan pelafalan Katakana/Furigana. Teks: "${sourceText}"`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            kanji: {
+              type: Type.STRING,
+              description: "Sisi Depan Flashcard (Kata kunci atau Kanji).",
+            },
+            katakana: {
+              type: Type.STRING,
+              description: "Pengucapan dalam Furigana(Hiragana/Katakana).",
+            },
+            transcription: {
+              type: Type.STRING,
+              description: "Terjemahan atau definisi singkat dalam Bahasa Indonesia.",
+            },
+          },
+          required: ["kanji", "katakana", "transcription"],
+        },
+      },
+    });
+
+    const generatedText = response.text.trim();
+    const cardData = JSON.parse(generatedText);
+
+    if (
+      cardData &&
+      typeof cardData.kanji === 'string' &&
+      typeof cardData.katakana === 'string' &&
+      typeof cardData.transcription === 'string'
+    ) {
+      return {
+        kanji: cardData.kanji,
+        katakana: cardData.katakana,
+        transcription: cardData.transcription,
+      };
+    } else {
+      console.error("AI response for full card is not in the expected format:", cardData);
+      return null;
+    }
+  } catch (error) {
+    console.error("Error generating full card with AI:", error);
+    return null;
+  }
+};
+
+export const generateVocabFromSource = async (
+  sourceText: string
+): Promise<Array<{ kanji: string; katakana: string; transcription: string }> | null> => {
+  if (!ai) return null;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Analisis teks panjang berikut secara menyeluruh. Ekstrak semua kata benda, kata kerja, atau kata sifat yang penting atau tidak umum, yang cocok untuk dipelajari oleh pembelajar bahasa. Jumlahnya bisa bervariasi tergantung pada kepadatan teks. Pastikan setiap kata memiliki Terjemahan/Arti (Transkrip) dan Pelafalan (Katakana/Furigana). Abaikan partikel (は, が, を, で), grammar points dasar, dan verb conjugations yang sudah dikenal. Teks: "${sourceText}"`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              kanji: {
+                type: Type.STRING,
+                description: "Kata kunci (Kanji).",
+              },
+              katakana: {
+                type: Type.STRING,
+                description: "Pelafalan Hiragana/Katakana.",
+              },
+              transcription: {
+                type: Type.STRING,
+                description: "Terjemahan/Arti.",
+              },
+            },
+            required: ["kanji", "katakana", "transcription"],
+          },
+        },
+      },
+    });
+
+    const generatedText = response.text.trim();
+    const vocabList = JSON.parse(generatedText);
+
+    if (
+      Array.isArray(vocabList) &&
+      vocabList.every(
+        (item) =>
+          item &&
+          typeof item.kanji === 'string' &&
+          typeof item.katakana === 'string' &&
+          typeof item.transcription === 'string'
+      )
+    ) {
+      return vocabList;
+    } else {
+      console.error("AI response for vocab list is not in the expected format:", vocabList);
+      return null;
+    }
+  } catch (error) {
+    console.error("Error generating vocab list with AI:", error);
+    return null;
+  }
+};
+
+
+export const generateDeckFromTopic = async (
+  topic: string
+): Promise<Array<{ kanji: string; katakana: string; transcription: string; exampleSentence: string }> | null> => {
+  if (!ai) return null;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Buat daftar minimal 20 kosakata Bahasa Jepang (Kanji), beserta Katakana/Hiragana, terjemahan Bahasa Indonesia, dan satu contoh kalimat untuk masing-masing, yang paling relevan dengan topik: "${topic}".`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              kanji: {
+                type: Type.STRING,
+                description: "Kata kunci (Kanji).",
+              },
+              katakana: {
+                type: Type.STRING,
+                description: "Pelafalan Hiragana/Katakana.",
+              },
+              transcription: {
+                type: Type.STRING,
+                description: "Terjemahan/Arti dalam Bahasa Indonesia.",
+              },
+              exampleSentence: {
+                type: Type.STRING,
+                description: "Contoh kalimat yang menggunakan kata tersebut.",
+              },
+            },
+            required: ["kanji", "katakana", "transcription", "exampleSentence"],
+          },
+        },
+      },
+    });
+
+    const generatedText = response.text.trim();
+    const vocabList = JSON.parse(generatedText);
+
+    if (
+      Array.isArray(vocabList) &&
+      vocabList.every(
+        (item) =>
+          item &&
+          typeof item.kanji === 'string' &&
+          typeof item.katakana === 'string' &&
+          typeof item.transcription === 'string' &&
+          typeof item.exampleSentence === 'string'
+      )
+    ) {
+      return vocabList;
+    } else {
+      console.error("AI response for deck generation is not in the expected format:", vocabList);
+      return null;
+    }
+  } catch (error) {
+    console.error("Error generating deck from topic with AI:", error);
+    return null;
+  }
+};
+
+
 export const generateFurigana = async (kanjiText: string): Promise<string | null> => {
     if (!ai) return null;
 
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: `Berikan Furigana (cara baca Hiragana) untuk teks Kanji ini: "${kanjiText}"`,
+            contents: `Berikan Furigana (cara baca Hiragana/Katakana) untuk teks Kanji ini: "${kanjiText}"`,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        furigana: {
+                        katakana: {
                             type: Type.STRING,
-                            description: "Teks furigana (hiragana) untuk kanji yang diberikan.",
+                            description: "Teks furigana (hiragana/katakana) untuk kanji yang diberikan.",
                         },
                     },
-                    required: ["furigana"],
+                    required: ["katakana"],
                 },
             },
         });
         const generatedText = response.text.trim();
         const result = JSON.parse(generatedText);
 
-        if (result && typeof result.furigana === 'string') {
-            return result.furigana;
+        if (result && typeof result.katakana === 'string') {
+            return result.katakana;
         } else {
             console.error("AI response for furigana is not in the expected format:", result);
             return null;

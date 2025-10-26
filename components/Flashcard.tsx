@@ -3,14 +3,11 @@ import { Card } from '../types';
 import { useThemeStore } from '../store/themeStore';
 import { speakText } from '../services/ttsService';
 import Icon from './Icon';
-import CircularTimer from './CircularTimer';
 
 interface FlashcardProps {
   card: Card;
   isFlipped: boolean;
   quizMode?: string | null;
-  timeLeft?: number;
-  duration?: number;
 }
 
 // Memetakan pengaturan ke kelas Tailwind
@@ -38,7 +35,7 @@ const sizeClassMap = {
 };
 
 
-const Flashcard: React.FC<FlashcardProps> = ({ card, isFlipped, quizMode, timeLeft, duration }) => {
+const Flashcard: React.FC<FlashcardProps> = ({ card, isFlipped }) => {
   const { studyDirection, quizFontSize, isTTSMuted } = useThemeStore(state => ({
     studyDirection: state.studyDirection,
     quizFontSize: state.quizFontSize,
@@ -68,18 +65,13 @@ const Flashcard: React.FC<FlashcardProps> = ({ card, isFlipped, quizMode, timeLe
 
   return (
     <div className="relative w-full h-full flex items-center justify-center">
-      {quizMode === 'blitz' && timeLeft !== undefined && duration !== undefined && (
-        <CircularTimer
-          duration={duration}
-          timeLeft={timeLeft}
-          size={340} // Sedikit lebih besar dari tinggi kartu (h-80 = 320px)
-          strokeWidth={8}
-          className="absolute inset-0 m-auto pointer-events-none z-20"
-        />
-      )}
+      <span className="sr-only" aria-live="polite">
+        {isFlipped ? `Belakang kartu: ${backContentMain}, ${card.transcription || ''}` : `Depan kartu: ${frontContent}`}
+      </span>
       <div className="w-full h-full max-h-80 perspective-1000">
         <div
           className={`relative w-full h-full transform transition-all duration-500 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}
+          aria-hidden="true"
         >
           {/* Depan kartu */}
           <div className="absolute w-full h-full bg-gray-200 dark:bg-[#4A4458] rounded-xl flex items-center justify-center p-6 backface-hidden">

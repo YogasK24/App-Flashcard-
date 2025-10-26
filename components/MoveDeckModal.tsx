@@ -28,6 +28,18 @@ const MoveDeckModal: React.FC<MoveDeckModalProps> = ({ deckToMoveId, onClose, on
   const [selectedParentId, setSelectedParentId] = useState<number | null | undefined>(undefined);
 
   useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            onClose();
+        }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
+  useEffect(() => {
     const fetchParents = async () => {
       setLoading(true);
       const parents = await getPossibleParents(deckToMoveId);
@@ -93,8 +105,11 @@ const MoveDeckModal: React.FC<MoveDeckModalProps> = ({ deckToMoveId, onClose, on
         onClick={e => e.stopPropagation()}
         className="bg-white dark:bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl"
         variants={modalVariants}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="move-deck-modal-title"
       >
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Pindahkan ke...</h2>
+        <h2 id="move-deck-modal-title" className="text-xl font-bold text-gray-900 dark:text-white mb-4">Pindahkan ke...</h2>
         
         <div className="mb-6">
           {renderParentList()}

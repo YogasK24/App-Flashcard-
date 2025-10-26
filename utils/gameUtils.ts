@@ -75,16 +75,18 @@ export const getCardsInHierarchy = async (itemId: number): Promise<Card[]> => {
 
 
 /**
- * Mengambil, memfilter, mengacak, dan memformat data kartu untuk digunakan dalam permainan.
+ * Mengambil, memfilter, mengacak, dan memformat data kartu untuk digunakan dalam permainan atau kuis.
  * @param deckId ID dari dek atau folder untuk mendapatkan kartu.
  * @param modeType Mode belajar ('sr', 'simple', 'blitz') yang menentukan pemfilteran kartu.
- * @param cardField Parameter ini disertakan для penggunaan di masa mendatang oleh komponen permainan untuk menentukan bidang kartu mana yang utama. Ini tidak mengubah struktur data yang dikembalikan dalam versi ini.
+ * @param cardField Parameter ini disertakan untuk penggunaan di masa mendatang.
+ * @param cardSet Tipe set kartu yang akan diambil ('due', 'new', 'review_all').
  * @returns Promise yang resolve ke array objek Card yang diacak dan siap untuk permainan.
  */
 export const setupGameData = async (
     deckId: number, 
     modeType: 'sr' | 'simple' | 'blitz',
-    cardField: 'front' | 'back' // disertakan untuk perluasan di masa mendatang
+    cardField: 'front' | 'back',
+    cardSet: 'due' | 'new' | 'review_all' = 'due'
 ): Promise<Card[]> => {
     try {
         const allCardsInScope = await getCardsInHierarchy(deckId);
@@ -94,26 +96,37 @@ export const setupGameData = async (
             return [];
         }
         
-        let cardsForGame: Card[] = [];
+        let filteredCards: Card[] = [];
         const now = new Date();
 
-        switch(modeType) {
-            case 'simple':
-                cardsForGame = allCardsInScope;
-                break;
-            case 'sr':
-            case 'blitz':
-            default:
-                cardsForGame = allCardsInScope.filter(card => card.dueDate <= now);
-                break;
+        if (modeType === 'simple') {
+            allCardsInScope.sort((a, b) => {
+                if (a.interval === 0 && b.interval !== 0) return -1;
+                if (a.interval !== 0 && b.interval === 0) return 1;
+                return 0;
+            });
+            filteredCards = allCardsInScope;
+        } else {
+            switch (cardSet) {
+                case 'new':
+                    filteredCards = allCardsInScope.filter(c => c.interval === 0);
+                    break;
+                case 'review_all':
+                    filteredCards = allCardsInScope.filter(c => c.interval > 0);
+                    break;
+                case 'due':
+                default:
+                    filteredCards = allCardsInScope.filter(c => c.dueDate <= now);
+                    break;
+            }
         }
 
-        if (cardsForGame.length === 0) {
-            console.log(`Tidak ada kartu untuk diulang untuk mode: ${modeType}`);
+        if (filteredCards.length === 0) {
+            console.log(`Tidak ada kartu untuk diulang untuk mode: ${modeType} dan set: ${cardSet}`);
             return [];
         }
 
-        return shuffleArray(cardsForGame);
+        return shuffleArray(filteredCards);
 
     } catch (error) {
         console.error(`Gagal menyiapkan data permainan untuk dek ${deckId}:`, error);

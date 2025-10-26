@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { useThemeStore, SortOption, FilterOption } from '../store/themeStore';
+import { useThemeStore, CardSortOption } from '../store/themeStore';
 
-interface SortFilterModalProps {
+interface CardSortModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
@@ -27,8 +27,8 @@ const modalVariants: Variants = {
   }
 };
 
-const SortFilterModal: React.FC<SortFilterModalProps> = ({ isOpen, onClose }) => {
-    const { sortOption, setSortOption, filterOption, setFilterOption } = useThemeStore();
+const CardSortModal: React.FC<CardSortModalProps> = ({ isOpen, onClose }) => {
+    const { cardSortOption, setCardSortOption } = useThemeStore();
 
     useEffect(() => {
         if (!isOpen) return;
@@ -49,7 +49,7 @@ const SortFilterModal: React.FC<SortFilterModalProps> = ({ isOpen, onClose }) =>
         }
     };
 
-    const OptionButton = ({ label, value, current, setter }: { label: string, value: string, current: string, setter: (val: any) => void }) => (
+    const OptionButton = ({ label, value, current, setter }: { label: string, value: CardSortOption, current: CardSortOption, setter: (val: CardSortOption) => void }) => (
         <button
             onClick={() => setter(value)}
             className={`w-full px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${
@@ -66,7 +66,7 @@ const SortFilterModal: React.FC<SortFilterModalProps> = ({ isOpen, onClose }) =>
         <AnimatePresence>
             {isOpen && (
                 <motion.div
-                  key="sort-filter-backdrop"
+                  key="card-sort-modal-backdrop"
                   onClick={handleBackdropClick}
                   className="fixed inset-0 bg-black/60 flex items-end justify-center z-50"
                   variants={backdropVariants}
@@ -80,28 +80,22 @@ const SortFilterModal: React.FC<SortFilterModalProps> = ({ isOpen, onClose }) =>
                       className="bg-white dark:bg-[#2B2930] pt-3 pb-6 rounded-t-2xl shadow-2xl w-full max-w-md"
                       role="dialog"
                       aria-modal="true"
-                      aria-labelledby="sort-filter-title"
+                      aria-labelledby="card-sort-title"
                     >
                         <div className="w-10 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-4" />
-                        <h2 id="sort-filter-title" className="text-xl font-bold text-center mb-6 text-gray-900 dark:text-white">Sortir & Filter</h2>
+                        <h2 id="card-sort-title" className="text-xl font-bold text-center mb-6 text-gray-900 dark:text-white">Urutkan Kartu</h2>
                         
                         <div className="px-4 space-y-6">
                             <div>
-                                <h3 className="text-sm font-semibold text-gray-500 dark:text-[#C8C5CA] mb-3 px-1">SORTIR BERDASARKAN</h3>
+                                <h3 className="text-sm font-semibold text-gray-500 dark:text-[#C8C5CA] mb-3 px-1">URUTKAN BERDASARKAN</h3>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <OptionButton label="Terbaru" value="date-desc" current={sortOption} setter={setSortOption} />
-                                    <OptionButton label="Terlama" value="date-asc" current={sortOption} setter={setSortOption} />
-                                    <OptionButton label="Nama (A-Z)" value="title-asc" current={sortOption} setter={setSortOption} />
-                                    <OptionButton label="Nama (Z-A)" value="title-desc" current={sortOption} setter={setSortOption} />
-                                </div>
-                            </div>
-
-                            <div>
-                                <h3 className="text-sm font-semibold text-gray-500 dark:text-[#C8C5CA] mb-3 px-1">TAMPILKAN</h3>
-                                <div className="grid grid-cols-3 gap-3">
-                                    <OptionButton label="Semua" value="all" current={filterOption} setter={setFilterOption} />
-                                    <OptionButton label="Hanya Folder" value="folders" current={filterOption} setter={setFilterOption} />
-                                    <OptionButton label="Hanya Dek" value="decks" current={filterOption} setter={setFilterOption} />
+                                    <OptionButton label="Tanggal Dibuat (Baru)" value="date-desc" current={cardSortOption} setter={setCardSortOption} />
+                                    <OptionButton label="Tanggal Dibuat (Lama)" value="date-asc" current={cardSortOption} setter={setCardSortOption} />
+                                    <OptionButton label="Jatuh Tempo" value="due-date-asc" current={cardSortOption} setter={setCardSortOption} />
+                                    <OptionButton label="Depan (A-Z)" value="front-asc" current={cardSortOption} setter={setCardSortOption} />
+                                    <OptionButton label="Depan (Z-A)" value="front-desc" current={cardSortOption} setter={setCardSortOption} />
+                                    <OptionButton label="Belakang (A-Z)" value="back-asc" current={cardSortOption} setter={setCardSortOption} />
+                                    <OptionButton label="Belakang (Z-A)" value="back-desc" current={cardSortOption} setter={setCardSortOption} />
                                 </div>
                             </div>
                         </div>
@@ -113,4 +107,4 @@ const SortFilterModal: React.FC<SortFilterModalProps> = ({ isOpen, onClose }) =>
     );
 }
 
-export default SortFilterModal;
+export default CardSortModal;

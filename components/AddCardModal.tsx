@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, Variants } from 'framer-motion';
 import AddEditCardForm, { FormCardData } from './AddEditCardForm';
 
@@ -21,6 +21,18 @@ const modalVariants: Variants = {
 
 const AddCardModal: React.FC<AddCardModalProps> = ({ onClose, onAddCard }) => {
   const [isFormValid, setIsFormValid] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            onClose();
+        }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
 
   const handleSave = (cards: Omit<FormCardData, 'key' | 'showTranscription' | 'showExample' | 'showImage'>[]) => {
     if (cards.length > 0) {
@@ -47,9 +59,12 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ onClose, onAddCard }) => {
         onClick={e => e.stopPropagation()}
         className="bg-white dark:bg-[#2B2930] rounded-2xl p-6 w-full max-w-lg shadow-xl flex flex-col"
         variants={modalVariants}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-card-modal-title"
       >
         <div className="flex justify-between items-center mb-6 flex-shrink-0">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Tambah Kartu Baru</h2>
+            <h2 id="add-card-modal-title" className="text-xl font-bold text-gray-900 dark:text-white">Tambah Kartu Baru</h2>
             <button
                 type="submit"
                 form="add-edit-card-form"

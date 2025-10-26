@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useThemeStore } from '../store/themeStore';
 
@@ -22,6 +22,19 @@ const modalVariants: Variants = {
 const TimerSettingsModal: React.FC<TimerSettingsModalProps> = ({ isOpen, onClose }) => {
   const { timerDuration, setTimerDuration } = useThemeStore();
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            onClose();
+        }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -43,8 +56,11 @@ const TimerSettingsModal: React.FC<TimerSettingsModalProps> = ({ isOpen, onClose
           <motion.div
             className="bg-white dark:bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl"
             variants={modalVariants}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="timer-settings-title"
           >
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Pengaturan Timer Blitz</h2>
+            <h2 id="timer-settings-title" className="text-xl font-bold text-gray-900 dark:text-white mb-6">Pengaturan Timer Blitz</h2>
             <div className="mb-4">
               <div className="flex justify-between items-center mb-2">
                 <label htmlFor="timer-duration" className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA]">

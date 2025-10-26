@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
 import { useThemeStore } from '../store/themeStore';
@@ -27,6 +27,14 @@ const Quiz: React.FC = () => {
   const [isTimerSettingsModalOpen, setIsTimerSettingsModalOpen] = useState(false);
   const [isFontSizeModalOpen, setIsFontSizeModalOpen] = useState(false);
   const [isSessionComplete, setIsSessionComplete] = useState(false);
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+        mountedRef.current = false;
+    };
+  }, []);
 
   const totalCards = quizCards.length;
   const currentCard = quizCards[currentCardIndex];
@@ -66,35 +74,8 @@ const Quiz: React.FC = () => {
       default: return 'Kuis';
     }
   };
-  
-  const handleTimeUp = () => {
-    if (isProcessing) return;
 
-    if (!isFlipped) {
-      setIsFlipped(true);
-      setTimeout(() => {
-        handleRate('lupa');
-      }, 1000);
-    } else {
-      handleRate('lupa');
-    }
-  };
-
-  const { timeLeft, stopTimer, timerProgress } = useQuizTimer({
-    key: currentCard?.id,
-    initialTime: quizMode === 'blitz' ? timerDuration : 0,
-    onTimeUp: handleTimeUp,
-  });
-
-  const handleReveal = () => {
-    if (isProcessing) return;
-    if (quizMode === 'blitz') {
-      stopTimer();
-    }
-    setIsFlipped(true);
-  };
-
-  const handleRate = async (feedback: 'lupa' | 'ingat') => {
+  const handleRate = useCallback(async (feedback: 'lupa' | 'ingat') => {
     if (isProcessing || !currentCard) return;
     setIsProcessing(true);
     setDirection(1);
@@ -104,6 +85,7 @@ const Quiz: React.FC = () => {
     setIsFlipped(false); // Sembunyikan bagian belakang kartu segera
 
     setTimeout(() => {
+        if (!mountedRef.current) return;
         // Dalam mode SR dengan feedback 'lupa', kartu diantrekan ulang oleh store.
         // Kita tidak menaikkan indeks untuk memungkinkan dek yang diacak ulang menampilkan kartu berikutnya pada indeks yang sama.
         // Pengecualian: jika ini satu-satunya kartu yang tersisa, kita harus maju untuk mengakhiri sesi.
@@ -115,7 +97,44 @@ const Quiz: React.FC = () => {
         
         setIsProcessing(false);
     }, 150); // Penundaan memungkinkan kartu untuk membalik sebelum berubah
+  }, [isProcessing, currentCard, quizMode, quizCards.length, updateCardProgress]);
+  
+  const handleTimeUp = useCallback(() => {
+    if (isProcessing) return;
+
+    if (!isFlipped) {
+      setIsFlipped(true);
+      setTimeout(() => {
+        if (mountedRef.current) {
+            handleRate('lupa');
+        }
+      }, 1000);
+    } else {
+      handleRate('lupa');
+    }
+  }, [isProcessing, isFlipped, handleRate]);
+
+  const { timerProgress, start, stop, reset } = useQuizTimer(
+    quizMode === 'blitz' ? timerDuration : 0,
+    handleTimeUp,
+  );
+
+  useEffect(() => {
+    reset();
+    if (quizMode === 'blitz') {
+      start();
+    }
+  }, [currentCard?.id, quizMode, reset, start]);
+
+
+  const handleReveal = () => {
+    if (isProcessing) return;
+    if (quizMode === 'blitz') {
+      stop();
+    }
+    setIsFlipped(true);
   };
+
 
   if (isSessionComplete) {
     return <SessionCompleteModal isOpen={true} onExit={endQuiz} />;
@@ -146,6 +165,8 @@ const Quiz: React.FC = () => {
         boxInfo={quizMode === 'sr' && currentCard ? `Box ${currentCard.repetitions + 1}` : undefined}
         onOpenTimerSettings={() => setIsTimerSettingsModalOpen(true)}
         onOpenFontSizeSettings={() => setIsFontSizeModalOpen(true)}
+        timerProgress={timerProgress}
+        showTimerBar={quizMode === 'blitz'}
       />
       <div className="flex-grow flex items-center justify-center relative px-4">
         <AnimatePresence initial={false} custom={direction} mode="wait">
@@ -166,8 +187,6 @@ const Quiz: React.FC = () => {
               card={currentCard}
               isFlipped={isFlipped}
               quizMode={quizMode}
-              timeLeft={timeLeft}
-              duration={timerDuration}
             />
           </motion.div>
         </AnimatePresence>

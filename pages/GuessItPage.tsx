@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
 import { useThemeStore } from '../store/themeStore';
@@ -6,7 +6,6 @@ import { generateGuessOptions, GuessOption } from '../utils/gameUtils';
 import Icon from '../components/Icon';
 import GameHeader from '../components/GameHeader';
 import { useQuizTimer } from '../hooks/useQuizTimer';
-import CircularTimer from '../components/CircularTimer';
 import SessionCompleteModal from '../components/SessionCompleteModal';
 
 const GuessItPage: React.FC = () => {
@@ -26,6 +25,14 @@ const GuessItPage: React.FC = () => {
   const [direction, setDirection] = useState(1);
   const [notEnoughCards, setNotEnoughCards] = useState(false);
   const [isSessionComplete, setIsSessionComplete] = useState(false);
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+        mountedRef.current = false;
+    };
+  }, []);
   
   const questionField = studyDirection === 'kanji' ? 'front' : 'back';
   const answerField = studyDirection === 'kanji' ? 'back' : 'front';
@@ -38,27 +45,27 @@ const GuessItPage: React.FC = () => {
     }
   }, [currentCardIndex, quizCards.length]);
 
-  const handleTimeUp = () => {
+  const handleTimeUp = useCallback(() => {
     if (isAnswered) return;
     setIsAnswered(true);
     setSelectedAnswer(null); // Tidak ada jawaban yang dipilih
 
     updateCardProgress(currentCard, 'lupa').then(() => {
       setTimeout(() => {
-        setDirection(1);
-        setCurrentCardIndex(prev => prev + 1);
-        setIsAnswered(false);
-        setSelectedAnswer(null);
+        if (mountedRef.current) {
+            setDirection(1);
+            setCurrentCardIndex(prev => prev + 1);
+            setIsAnswered(false);
+            setSelectedAnswer(null);
+        }
       }, 1800);
     });
-  };
+  }, [isAnswered, currentCard, updateCardProgress]);
 
-  const { timeLeft, stopTimer } = useQuizTimer({
-    key: currentCard?.id,
-    initialTime: quizMode === 'blitz' ? timerDuration : 0,
-    onTimeUp: handleTimeUp,
-  });
-
+  const { timerProgress, start, stop, reset } = useQuizTimer(
+    quizMode === 'blitz' ? timerDuration : 0,
+    handleTimeUp,
+  );
 
   useEffect(() => {
     if (quizCards.length < 2) {
@@ -67,14 +74,25 @@ const GuessItPage: React.FC = () => {
     }
     
     if (currentCard) {
+      // Setup kartu dan opsi
       const newOptions = generateGuessOptions(currentCard, quizCards, answerField);
       setOptions(newOptions);
+      
+      // Reset dan mulai timer untuk kartu baru
+      reset();
+      if (quizMode === 'blitz') {
+        start();
+      }
     }
-  }, [currentCard, quizCards, answerField]);
+    // Hentikan timer kartu sebelumnya saat beralih atau unmount
+    return () => {
+        stop();
+    };
+  }, [currentCard, quizCards, answerField, reset, start, stop, quizMode]);
 
   const handleOptionSelect = async (selectedOption: GuessOption) => {
     if (isAnswered) return;
-    stopTimer();
+    stop();
     setIsAnswered(true);
     setSelectedAnswer(selectedOption.text);
 
@@ -87,10 +105,12 @@ const GuessItPage: React.FC = () => {
     await updateCardProgress(currentCard, isCorrect ? 'ingat' : 'lupa');
 
     setTimeout(() => {
-      setDirection(1);
-      setCurrentCardIndex(prev => prev + 1);
-      setIsAnswered(false);
-      setSelectedAnswer(null);
+      if (mountedRef.current) {
+          setDirection(1);
+          setCurrentCardIndex(prev => prev + 1);
+          setIsAnswered(false);
+          setSelectedAnswer(null);
+      }
     }, 1800);
   };
 
@@ -149,6 +169,8 @@ const GuessItPage: React.FC = () => {
         totalCards={quizCards.length}
         progress={progressPercentage}
         boxInfo={quizMode === 'sr' && currentCard ? `Box ${currentCard.repetitions + 1}` : undefined}
+        timerProgress={timerProgress}
+        showTimerBar={quizMode === 'blitz'}
       />
       
       <main className="flex-grow flex flex-col justify-center items-center">
@@ -169,15 +191,6 @@ const GuessItPage: React.FC = () => {
                 className="w-full flex-grow flex items-center justify-center"
               >
                 <div className="relative w-full max-w-sm h-48 flex items-center justify-center">
-                  {quizMode === 'blitz' && (
-                    <CircularTimer
-                      duration={timerDuration}
-                      timeLeft={timeLeft}
-                      size={220} // Sedikit lebih besar dari tinggi kartu (h-48 adalah 192px)
-                      strokeWidth={8}
-                      className="absolute inset-0 m-auto pointer-events-none z-0"
-                    />
-                  )}
                   <div className="relative z-10 bg-gray-200 dark:bg-[#4A4458] rounded-xl flex items-center justify-center p-6 w-full h-48">
                     <p className="text-4xl md:text-5xl font-bold text-center text-gray-900 dark:text-[#E6E1E5]">
                       {currentCard[questionField]}

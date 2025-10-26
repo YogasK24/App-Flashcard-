@@ -1,4 +1,3 @@
-
 import Dexie, { type Table } from 'dexie';
 import type { Deck, Card, AppSettings } from '../types';
 
@@ -15,8 +14,8 @@ export const db = new Dexie('FlashcardDatabase') as Dexie & {
   initialDecks: Table<{ id?: number; deckId: number; creationMethod: 'manual' | 'ai' }, number>;
 };
 
-db.version(1).stores({
-  decks: '++id, title, parentId',
+db.version(6).stores({
+  decks: '++id, parentId, title, type',
   cards: '++id, deckId, dueDate, isMastered',
   settings: 'id',
   studyHistory: '++id, timestamp',

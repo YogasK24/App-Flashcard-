@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useThemeStore, QuizFontSize } from '../store/themeStore';
 
@@ -21,6 +21,19 @@ const modalVariants: Variants = {
 
 const FontSizeModal: React.FC<FontSizeModalProps> = ({ isOpen, onClose }) => {
   const { quizFontSize, setQuizFontSize } = useThemeStore();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            onClose();
+        }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -49,8 +62,11 @@ const FontSizeModal: React.FC<FontSizeModalProps> = ({ isOpen, onClose }) => {
           <motion.div
             className="bg-white dark:bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl"
             variants={modalVariants}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="font-size-modal-title"
           >
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Pengaturan Ukuran Teks</h2>
+            <h2 id="font-size-modal-title" className="text-xl font-bold text-gray-900 dark:text-white mb-6">Pengaturan Ukuran Teks</h2>
             <div className="mb-4">
               <p className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-3">
                 Ukuran Teks Kartu

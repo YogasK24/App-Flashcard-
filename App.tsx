@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import Header from './components/Header';
 import DeckList from './components/DeckList';
-import FloatingActionButton from './components/FloatingActionButton';
 import { useCardStore } from './store/cardStore';
 import { useThemeStore } from './store/themeStore';
 import Quiz from './pages/Quiz';
@@ -20,6 +19,7 @@ import QuizModeSelector from './components/QuizModeSelector';
 import EditCardPage from './pages/EditCardPage';
 import { initializeTTS } from './services/ttsService';
 import SortFilterModal from './components/SortFilterModal';
+import CardSortModal from './components/CardSortModal';
 import { db } from './services/databaseService';
 import CardSearchResultList from './components/CardSearchResultList';
 import Sidebar from './components/Sidebar';
@@ -29,6 +29,11 @@ import Icon from './components/Icon';
 import { parseFile, ParsedFileData } from './utils/importService';
 import SuccessNotification from './components/SuccessNotification';
 import ExportModal from './components/ExportModal';
+import AICardInputModal from './components/AICardInputModal';
+import TargetDeckSelectorModal from './components/TargetDeckSelectorModal';
+import ConfirmBulkDeleteCardModal from './components/ConfirmBulkDeleteCardModal';
+import AIGenerateDeckModal from './components/AIGenerateDeckModal';
+
 
 export interface CardSearchResult {
   card: Card;
@@ -49,12 +54,12 @@ interface SearchOverlayProps {
 
 const overlayVariants: Variants = {
     hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { duration: 0.3 } },
+    visible: { opacity: 1, transition: { duration: 0.3, ease: 'easeInOut' } },
 };
 
 const contentVariants: Variants = {
-    hidden: { y: '-100%', transition: { duration: 0.3, ease: 'easeOut' } },
-    visible: { y: '0%', transition: { duration: 0.3, ease: 'easeOut' } },
+    hidden: { y: '-100%', transition: { type: 'spring', damping: 30, stiffness: 250 } },
+    visible: { y: '0%', transition: { type: 'spring', damping: 20, stiffness: 200 } },
 };
 
 const SearchOverlay: React.FC<SearchOverlayProps> = ({ 
@@ -69,10 +74,21 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
 
     useEffect(() => {
         if (isOpen) {
+            const handleKeyDown = (event: KeyboardEvent) => {
+                if (event.key === 'Escape') {
+                    onClose();
+                }
+            };
+            document.addEventListener('keydown', handleKeyDown);
+
             // Penundaan singkat untuk memungkinkan transisi
             setTimeout(() => searchInputRef.current?.focus(), 300);
+
+            return () => {
+                document.removeEventListener('keydown', handleKeyDown);
+            };
         }
-    }, [isOpen]);
+    }, [isOpen, onClose, searchScope]); // Tambahkan searchScope untuk memicu fokus ulang
 
     const getPlaceholderText = () => {
         switch (searchScope) {
@@ -101,19 +117,30 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
                         className="bg-gray-50 dark:bg-[#1C1B1F] text-gray-900 dark:text-[#E6E1E5] p-4"
                         variants={contentVariants}
                         onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Formulir Pencarian"
                     >
                         <div className="flex items-center w-full mb-4">
                             <button onClick={onClose} aria-label="Tutup pencarian" className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors duration-200 mr-2">
                                 <Icon name="chevronLeft" className="w-6 h-6" />
                             </button>
-                            <input
-                                ref={searchInputRef}
-                                type="text"
-                                value={searchQuery}
-                                onChange={onSearchChange}
-                                placeholder={getPlaceholderText()}
-                                className="flex-grow bg-transparent text-lg focus:outline-none"
-                            />
+                            <motion.div 
+                                key={searchScope}
+                                className="flex-grow"
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.2, delay: 0.1 }}
+                            >
+                                <input
+                                    ref={searchInputRef}
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={onSearchChange}
+                                    placeholder={getPlaceholderText()}
+                                    className="flex-grow bg-transparent text-lg focus:outline-none w-full"
+                                />
+                            </motion.div>
                         </div>
                         <SearchScopeToggle
                             currentScope={searchScope}
@@ -146,54 +173,44 @@ const sidebarVariants: Variants = {
 };
 
 function App() {
-  const { 
-    quizDeck,
-    gameType, 
-    getDecksByParentId, 
-    addDeck, 
-    deleteDeck, 
-    updateDeckParent, 
+  // Pisahkan state yang berubah (yang memicu re-render) dari actions
+  const decks = useCardStore((state) => state.decks);
+  const quizDeck = useCardStore((state) => state.quizDeck);
+  const gameType = useCardStore((state) => state.gameType);
+
+  // Actions tidak menyebabkan re-render, jadi kita bisa mendapatkannya dengan getState
+  // untuk performa yang lebih baik.
+  const {
+    addDeck,
+    deleteDeck,
+    updateDeckParent,
     getPossibleParentDecks,
     updateDeckTitle,
     duplicateDeck,
-    getDeckById,
     updateCard,
     deleteCard,
-    recalculateAllDeckStats,
+    deleteCards,
+    moveCards,
     importDeckFromFile,
-    showNotification,
-  } = useCardStore(state => ({
-    quizDeck: state.quizDeck,
-    gameType: state.gameType,
-    getDecksByParentId: state.getDecksByParentId,
-    addDeck: state.addDeck,
-    deleteDeck: state.deleteDeck,
-    updateDeckParent: state.updateDeckParent,
-    getPossibleParentDecks: state.getPossibleParentDecks,
-    updateDeckTitle: state.updateDeckTitle,
-    duplicateDeck: state.duplicateDeck,
-    getDeckById: state.getDeckById,
-    updateCard: state.updateCard,
-    deleteCard: state.deleteCard,
-    recalculateAllDeckStats: state.recalculateAllDeckStats,
-    importDeckFromFile: state.importDeckFromFile,
-    showNotification: state.showNotification,
-  }));
+    loadAllCards,
+    loadAllDecks,
+  } = useCardStore.getState();
+
   const { theme, sortOption, filterOption } = useThemeStore();
 
-  const [decks, setDecks] = useState<Deck[]>([]); // Dek dalam folder saat ini
-  const [decksToDisplay, setDecksToDisplay] = useState<Deck[]>([]); // Dek yang akan ditampilkan, baik hasil penelusuran atau penelusuran
-  const [loading, setLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
   const [currentParentId, setCurrentParentId] = useState<number | null>(null);
-  const [currentParentDeck, setCurrentParentDeck] = useState<Deck | null>(null);
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
-  const [currentDeckForHeader, setCurrentDeckForHeader] = useState<Deck | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddDeckModalOpen, setIsAddDeckModalOpen] = useState(false);
+  const [isAiCardModalOpen, setIsAiCardModalOpen] = useState(false);
+  const [isAiDeckModalOpen, setIsAiDeckModalOpen] = useState(false);
+  const [isDeckSelectorOpen, setIsDeckSelectorOpen] = useState(false);
+  const [deckIdForAiModal, setDeckIdForAiModal] = useState<number | null>(null);
+  const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
   const [isQuizModeSelectorOpen, setIsQuizModeSelectorOpen] = useState(false);
   const [isSortFilterModalOpen, setIsSortFilterModalOpen] = useState(false);
+  const [isCardSortModalOpen, setIsCardSortModalOpen] = useState(false);
   const [deckIdToQuiz, setDeckIdToQuiz] = useState<number | null>(null);
   const [openingDeckId, setOpeningDeckId] = useState<number | null>(null);
   const [contextMenuState, setContextMenuState] = useState({
@@ -201,6 +218,7 @@ function App() {
     x: 0,
     y: 0,
     deckId: null as number | null,
+    triggerElement: null as HTMLElement | null,
   });
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ deckId: number; title: string } | null>(null);
   const [moveDeckTarget, setMoveDeckTarget] = useState<number | null>(null);
@@ -215,6 +233,13 @@ function App() {
   const [highlightedItemId, setHighlightedItemId] = useState<number | null>(null);
   const [cardSearchResults, setCardSearchResults] = useState<CardSearchResult[]>([]);
   const [cardIdToHighlight, setCardIdToHighlight] = useState<number | null>(null);
+  
+  // State untuk mode pemilihan kartu massal
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
+  const [isMoveCardsModalOpen, setIsMoveCardsModalOpen] = useState(false);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [selectAllTrigger, setSelectAllTrigger] = useState(0);
 
   // State untuk fungsionalitas impor/ekspor
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
@@ -224,7 +249,7 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    initializeTTS(); // Pastikan fungsi inisialisasi ini dipanggil sekali saat komponen dimuat.
+    initializeTTS();
   }, []);
 
   useEffect(() => {
@@ -236,15 +261,14 @@ function App() {
   // Efek untuk inisialisasi aplikasi satu kali
   useEffect(() => {
     const initializeApp = async () => {
-        await recalculateAllDeckStats();
-        setIsInitialized(true); // Tandai bahwa inisialisasi selesai
+        await loadAllDecks();
+        await loadAllCards();
+        setIsInitialized(true);
     };
     initializeApp();
-  }, [recalculateAllDeckStats]);
+  }, [loadAllDecks, loadAllCards]);
 
   useEffect(() => {
-    // Saat kuis/permainan berakhir (quizDeck/gameType menjadi null), reset status loading.
-    // Ini memperbaiki bug di mana tombol putar tetap menampilkan spinner setelah kembali ke daftar dek.
     if (!quizDeck && !gameType && openingDeckId !== null) {
       setOpeningDeckId(null);
     }
@@ -252,140 +276,104 @@ function App() {
 
   useEffect(() => {
     if (highlightedItemId !== null) {
-      // Tunggu hingga DOM diperbarui setelah navigasi folder
       const timer = setTimeout(() => {
         const element = document.getElementById(`deck-item-${highlightedItemId}`);
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          // Hapus sorotan setelah beberapa saat
-          const highlightTimer = setTimeout(() => {
-            setHighlightedItemId(null);
-          }, 2500); // Sorot selama 2.5 detik
+          const highlightTimer = setTimeout(() => setHighlightedItemId(null), 2500);
           return () => clearTimeout(highlightTimer);
         } else {
-          // Jika elemen tidak ditemukan (misalnya, dek yang difilter), hapus saja sorotan
           setHighlightedItemId(null);
         }
-      }, 150); // Penundaan singkat untuk rendering
-
+      }, 150);
       return () => clearTimeout(timer);
     }
   }, [highlightedItemId]);
-
-  useEffect(() => {
-    if (selectedDeckId !== null) {
-        const fetchDeck = async () => {
-            const deck = await getDeckById(selectedDeckId);
-            setCurrentDeckForHeader(deck || null);
-        };
-        fetchDeck();
-    } else {
-        setCurrentDeckForHeader(null);
-    }
-  }, [selectedDeckId, getDeckById]);
-
-  const fetchAndSetDecks = useCallback(async () => {
-    setLoading(true);
-    if (currentParentId) {
-        const parentDeck = await getDeckById(currentParentId);
-        setCurrentParentDeck(parentDeck || null);
-    } else {
-        setCurrentParentDeck(null); // Atur ke null untuk root
-    }
-    const fetchedDecks = await getDecksByParentId(currentParentId);
-    setDecks(fetchedDecks);
-    setLoading(false);
-  }, [currentParentId, getDecksByParentId, getDeckById]);
-
-  useEffect(() => {
-    // Hanya muat dek setelah aplikasi diinisialisasi
-    if (isInitialized) {
-        fetchAndSetDecks();
-    }
-  }, [fetchAndSetDecks, isInitialized, refreshKey]);
-
-  useEffect(() => {
-    const updateDisplay = async () => {
-      if (!isInitialized) return;
   
-      setLoading(true);
-      const lowerCaseQuery = searchQuery.trim().toLowerCase();
-      let finalDecks: Deck[] = [];
-      let finalCardResults: CardSearchResult[] = [];
+  const currentDeckForHeader = useMemo(() => {
+    if (selectedDeckId === null) return null;
+    return decks.find(d => d.id === selectedDeckId) || null;
+  }, [selectedDeckId, decks]);
   
-      if (lowerCaseQuery === '') {
-        // --- MODE TELUSUR ---
-        setCardSearchResults([]);
-        let processedDecks = [...decks];
-        // 1. Filter berdasarkan tipe
-        if (filterOption === 'folders') {
-          processedDecks = processedDecks.filter(deck => deck.type === 'folder');
-        } else if (filterOption === 'decks') {
-          processedDecks = processedDecks.filter(deck => deck.type === 'deck');
-        }
-        finalDecks = processedDecks;
-      } else {
-        // --- MODE PENCARIAN ---
-        if (searchScope === 'card') {
-          const matchingCards = await db.cards.filter(card =>
-            card.front.toLowerCase().includes(lowerCaseQuery) ||
-            card.back.toLowerCase().includes(lowerCaseQuery)
-          ).toArray();
-          
-          if (matchingCards.length > 0) {
-            const deckIds = [...new Set(matchingCards.map(card => card.deckId))];
-            const parentDecks = await db.decks.where('id').anyOf(deckIds).toArray();
-            const deckMap = new Map(parentDecks.map(deck => [deck.id, deck]));
-
-            finalCardResults = matchingCards.map(card => ({
-                card,
-                deck: deckMap.get(card.deckId)!
-            })).filter(result => result.deck); // Filter kartu yang deknya tidak ditemukan
-          }
-        } else {
-          // Cari dek/folder
-          const allItems = await db.decks.toArray();
-          finalDecks = allItems.filter(item => {
-            const titleMatch = item.title.toLowerCase().includes(lowerCaseQuery);
-            if (!titleMatch) return false;
-  
-            switch (searchScope) {
-              case 'all':
-                return true;
-              case 'folder':
-                return item.type === 'folder';
-              case 'deck':
-                return item.type === 'deck';
-              default:
-                return false;
-            }
-          });
-        }
-      }
-  
-      // --- PENYORTIRAN (diterapkan pada dek) ---
-      finalDecks.sort((a, b) => {
-        switch (sortOption) {
-          case 'title-asc':
-            return a.title.localeCompare(b.title);
-          case 'title-desc':
-            return b.title.localeCompare(a.title);
-          case 'date-asc':
-            return a.id - b.id;
-          case 'date-desc':
-          default:
-            return b.id - a.id;
+  const decksToDisplay = useMemo(() => {
+    const lowerCaseQuery = searchQuery.trim().toLowerCase();
+    
+    // --- MODE PENCARIAN ---
+    if (lowerCaseQuery !== '' && searchScope !== 'card') {
+      const searchResults = decks.filter(item => {
+        const titleMatch = item.title.toLowerCase().includes(lowerCaseQuery);
+        if (!titleMatch) return false;
+        switch (searchScope) {
+          case 'all': return true;
+          case 'folder': return item.type === 'folder';
+          case 'deck': return item.type === 'deck';
+          default: return false;
         }
       });
-  
-      setDecksToDisplay(finalDecks);
-      setCardSearchResults(finalCardResults);
-      setLoading(false);
+      // Terapkan penyortiran pada hasil pencarian
+      return [...searchResults].sort((a, b) => {
+        switch (sortOption) {
+          case 'title-asc': return a.title.localeCompare(b.title);
+          case 'title-desc': return b.title.localeCompare(a.title);
+          case 'date-asc': return a.id - b.id;
+          case 'date-desc': default: return b.id - a.id;
+        }
+      });
+    }
+
+    // --- MODE TELUSUR (DEFAULT) ---
+    let currentLevelDecks = decks.filter(deck => deck.parentId === currentParentId);
+
+    // 1. Filter
+    if (filterOption === 'folders') {
+        currentLevelDecks = currentLevelDecks.filter(deck => deck.type === 'folder');
+    } else if (filterOption === 'decks') {
+        currentLevelDecks = currentLevelDecks.filter(deck => deck.type === 'deck');
+    }
+
+    // 2. Sortir
+    return [...currentLevelDecks].sort((a, b) => {
+        switch (sortOption) {
+          case 'title-asc': return a.title.localeCompare(b.title);
+          case 'title-desc': return b.title.localeCompare(a.title);
+          case 'date-asc': return a.id - b.id;
+          case 'date-desc': default: return b.id - a.id;
+        }
+    });
+
+  }, [decks, searchQuery, searchScope, sortOption, filterOption, currentParentId]);
+
+
+  useEffect(() => {
+    const searchCards = async () => {
+        if (searchQuery.trim() !== '' && searchScope === 'card') {
+            const lowerCaseQuery = searchQuery.trim().toLowerCase();
+            const matchingCards = await db.cards.filter(card =>
+                card.front.toLowerCase().includes(lowerCaseQuery) ||
+                card.back.toLowerCase().includes(lowerCaseQuery)
+            ).toArray();
+          
+            if (matchingCards.length > 0) {
+                const deckIds = [...new Set(matchingCards.map(card => card.deckId))];
+                // Mengambil dari state global daripada DB untuk konsistensi
+                const parentDecks = decks.filter(d => deckIds.includes(d.id));
+                const deckMap = new Map(parentDecks.map(deck => [deck.id, deck]));
+
+                const results = matchingCards.map(card => ({
+                    card,
+                    deck: deckMap.get(card.deckId)!
+                })).filter(result => result.deck);
+                setCardSearchResults(results);
+            } else {
+                setCardSearchResults([]);
+            }
+        } else {
+            setCardSearchResults([]);
+        }
     };
-  
-    updateDisplay();
-  
-  }, [decks, searchQuery, searchScope, filterOption, sortOption, isInitialized]);
+    searchCards();
+  }, [searchQuery, searchScope, decks]);
+
 
   const handleToggleSearch = useCallback(() => {
     setIsSearchVisible(prev => {
@@ -400,10 +388,19 @@ function App() {
     setSearchQuery(event.target.value);
   }, []);
   
+  const handleSearchScopeChange = useCallback((scope: 'all' | 'folder' | 'deck' | 'card') => {
+    setSearchScope(scope);
+    setSearchQuery(''); // Kosongkan pencarian saat scope berubah
+  }, []);
+
   const handleOpenSortFilter = useCallback(() => {
     setIsSortFilterModalOpen(true);
   }, []);
   
+  const handleOpenCardSortModal = useCallback(() => {
+    setIsCardSortModalOpen(true);
+  }, []);
+
   const handleMenuClick = useCallback(() => {
     setIsMainMenuOpen(true);
   }, []);
@@ -432,54 +429,60 @@ function App() {
   const handleAddDeck = useCallback(async (title: string, type: 'deck' | 'folder'): Promise<{ success: boolean; message?: string; }> => {
     const result = await addDeck(title, type, currentParentId);
     if (result.success) {
-        setRefreshKey(k => k + 1);
-        setIsModalOpen(false); // Tutup modal jika berhasil
+        setIsAddDeckModalOpen(false);
     }
-    return result; // Kembalikan hasil agar modal dapat menangani tampilan kesalahan
+    return result;
   }, [addDeck, currentParentId]);
 
-  const handleFabClick = useCallback(() => {
-    setIsModalOpen(true);
-  }, []);
+  const toggleFabMenu = () => setIsFabMenuOpen(prev => !prev);
+  
+  const handleOpenAddDeckModal = () => {
+      setIsAddDeckModalOpen(true);
+      setIsFabMenuOpen(false);
+  };
+  
+  const handleOpenAiCardModal = () => {
+    setIsDeckSelectorOpen(true);
+    setIsFabMenuOpen(false);
+  };
+
+  const handleOpenAiDeckModal = () => {
+    setIsAiDeckModalOpen(true);
+    setIsFabMenuOpen(false);
+  };
+
+  const handleDeckSelectedForAI = (deckId: number) => {
+    setIsDeckSelectorOpen(false);
+    setDeckIdForAiModal(deckId);
+    setIsAiCardModalOpen(true);
+  };
 
   const handleShowContextMenu = useCallback((event: React.MouseEvent, deckId: number) => {
     const menuWidth = 192;
-    const menuHeight = 220; // Disesuaikan untuk item baru
+    const menuHeight = 220;
     const padding = 10;
 
     let x = event.clientX;
     let y = event.clientY;
 
-    if (x + menuWidth > window.innerWidth) {
-      x = window.innerWidth - menuWidth - padding;
-    }
+    if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - padding;
+    if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - padding;
 
-    if (y + menuHeight > window.innerHeight) {
-      y = window.innerHeight - menuHeight - padding;
-    }
-
-    setContextMenuState({
-      isVisible: true,
-      x,
-      y,
-      deckId,
-    });
+    setContextMenuState({ isVisible: true, x, y, deckId, triggerElement: event.currentTarget as HTMLElement });
   }, []);
 
   const handleCloseContextMenu = useCallback(() => {
-    setContextMenuState(prevState => ({ ...prevState, isVisible: false }));
-  }, []);
+    if (contextMenuState.triggerElement) contextMenuState.triggerElement.focus();
+    setContextMenuState(prevState => ({ ...prevState, isVisible: false, triggerElement: null }));
+  }, [contextMenuState.triggerElement]);
   
   const handleRenameDeck = useCallback((deckId: number) => {
     const deckToEdit = decks.find(d => d.id === deckId);
-    if (deckToEdit) {
-      setEditDeckTarget(deckToEdit);
-    }
+    if (deckToEdit) setEditDeckTarget(deckToEdit);
   }, [decks]);
 
   const handleCopyDeck = useCallback(async (deckId: number) => {
     await duplicateDeck(deckId);
-    setRefreshKey(k => k + 1);
   }, [duplicateDeck]);
 
   const handleMoveDeck = useCallback((deckId: number) => {
@@ -503,20 +506,21 @@ function App() {
     if (deleteConfirmation) {
       await deleteDeck(deleteConfirmation.deckId);
       setDeleteConfirmation(null);
-      setRefreshKey(k => k + 1);
     }
   }, [deleteConfirmation, deleteDeck]);
 
   const handleConfirmRename = useCallback(async (deckId: number, newTitle: string) => {
-    await updateDeckTitle(deckId, newTitle);
-    setEditDeckTarget(null);
-    setRefreshKey(k => k + 1);
+    const result = await updateDeckTitle(deckId, newTitle);
+    if (result.success) {
+        setEditDeckTarget(null);
+    }
+    // Mengembalikan hasil agar modal dapat menampilkan error jika ada
+    return result;
   }, [updateDeckTitle]);
   
   const handleConfirmMove = useCallback(async (deckId: number, newParentId: number | null) => {
     await updateDeckParent(deckId, newParentId);
     setMoveDeckTarget(null);
-    setRefreshKey(k => k + 1);
   }, [updateDeckParent]);
   
   const handleDeleteCard = useCallback((card: Card) => {
@@ -526,14 +530,12 @@ function App() {
   const handleSaveEditedCard = useCallback(async (cardId: number, data: Partial<Omit<Card, 'id'>>) => {
     await updateCard(cardId, data);
     setCardToEdit(null);
-    setRefreshKey(k => k + 1);
   }, [updateCard]);
 
   const handleConfirmDeleteCard = useCallback(async () => {
     if (deleteCardTarget?.id) {
       await deleteCard(deleteCardTarget.id);
       setDeleteCardTarget(null);
-      setRefreshKey(k => k + 1);
     }
   }, [deleteCard, deleteCardTarget]);
   
@@ -556,12 +558,18 @@ function App() {
 
   const handleCloseExportModal = useCallback(() => {
     setIsExportModalOpen(false);
-    setExportTargetId(null); // Reset target saat modal ditutup
+    setExportTargetId(null);
   }, []);
 
   const handleCardListBack = useCallback(() => {
     setSelectedDeckId(null);
-    setRefreshKey(k => k + 1);
+    setIsSelectionMode(false);
+    setSelectedCardIds(new Set());
+  }, []);
+
+  const handleBreadcrumbNavigate = useCallback((id: number | null) => {
+    setCurrentParentId(id);
+    setSelectedDeckId(null);
   }, []);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -574,47 +582,73 @@ function App() {
     } catch (error) {
         console.error("Kesalahan saat memproses file:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
-        showNotification({ message: errorMessage, type: 'error' });
+        useCardStore.getState().showNotification({ message: errorMessage, type: 'error' });
     } finally {
-        // Reset input file agar file yang sama dapat dipilih lagi
-        if (event.target) {
-            event.target.value = '';
-        }
+        if (event.target) event.target.value = '';
     }
   };
 
   const finalizeImport = async (deckTitle: string, mapping: Record<string, string>) => {
     if (!importData) return;
-
     try {
       const result = await importDeckFromFile(deckTitle, currentParentId, importData, mapping);
-
       if (result.success) {
-        showNotification({
+        useCardStore.getState().showNotification({
           message: `${result.count} kartu berhasil diimpor ke dek '${deckTitle}'!`,
           type: 'success',
         });
       } else {
-        showNotification({
+        useCardStore.getState().showNotification({
           message: `Gagal mengimpor: ${result.message || 'Terjadi kesalahan.'}`,
           type: 'error',
         });
       }
     } catch (error) {
       console.error("Gagal menyelesaikan impor:", error);
-      showNotification({
-        message: "Terjadi kesalahan saat mengimpor dek.",
-        type: 'error',
-      });
+      useCardStore.getState().showNotification({ message: "Terjadi kesalahan saat mengimpor dek.", type: 'error' });
     } finally {
       setImportData(null);
-      setRefreshKey(k => k + 1);
     }
   };
   
   const handleCloseSidebar = useCallback(() => {
     setIsMainMenuOpen(false);
   }, []);
+  
+  const handleToggleSelectionMode = useCallback(() => {
+    setIsSelectionMode(prev => !prev);
+    setSelectedCardIds(new Set());
+  }, []);
+  
+  const handleCardSelection = useCallback((cardId: number) => {
+    setSelectedCardIds(prev => {
+        const newSelection = new Set(prev);
+        if (newSelection.has(cardId)) newSelection.delete(cardId);
+        else newSelection.add(cardId);
+        return newSelection;
+    });
+  }, []);
+  
+  const handleStartSelectionMode = useCallback((cardId: number) => {
+    setIsSelectionMode(true);
+    setSelectedCardIds(new Set([cardId]));
+  }, []);
+
+  const handleOpenBulkMove = () => setIsMoveCardsModalOpen(true);
+  const handleOpenBulkDelete = () => setIsBulkDeleteModalOpen(true);
+  const handleTriggerSelectAll = () => setSelectAllTrigger(c => c + 1);
+
+  const handleBulkDeleteConfirm = async () => {
+    await deleteCards(Array.from(selectedCardIds));
+    setIsBulkDeleteModalOpen(false);
+    handleToggleSelectionMode();
+  };
+  
+  const handleMoveCardsConfirm = async (targetDeckId: number) => {
+    await moveCards(Array.from(selectedCardIds), targetDeckId);
+    setIsMoveCardsModalOpen(false);
+    handleToggleSelectionMode();
+  };
 
   const isHeaderVisible = !cardToEdit && !gameType && !quizDeck;
 
@@ -628,76 +662,106 @@ function App() {
         />
       );
     }
-    if (gameType) {
-        return <GamePage />;
-    }
-    if (quizDeck) {
-        return <Quiz />;
-    }
+    if (gameType) return <GamePage />;
+    if (quizDeck) return <Quiz />;
     
-    // Tampilan Utama: Daftar Dek atau Daftar Kartu
     if (selectedDeckId === null) {
-        // Tampilan Daftar Dek
         const isSearching = searchQuery.trim() !== '';
         const isCardSearch = isSearching && searchScope === 'card';
         const effectiveOnItemClick = isSearching && !isCardSearch ? handleSearchResultClick : handleDeckItemClick;
         return (
             <>
-                <main className="flex-1 px-4 pb-20 space-y-2 transition-all duration-300 ease-in-out overflow-y-auto">
+                <main className="flex-1 flex flex-col px-4 pb-20 transition-all duration-300 ease-in-out min-h-0">
                     <Breadcrumbs 
                         currentDeckId={currentParentId} 
-                        onNavigate={(id) => {
-                        setCurrentParentId(id);
-                        setSelectedDeckId(null);
-                        }} 
+                        onNavigate={handleBreadcrumbNavigate}
                     />
-                    <div
-                        key={currentParentId ?? 'root'}
-                    >
+                    <div key={currentParentId ?? 'root'} className="flex-1 min-h-0 mt-2">
                         {isCardSearch ? (
                         <CardSearchResultList
                             results={cardSearchResults}
                             onItemClick={handleCardSearchResultClick}
-                            loading={loading || !isInitialized}
+                            loading={!isInitialized}
                         />
                         ) : (
                         <DeckList 
                             decks={decksToDisplay} 
-                            loading={loading || !isInitialized} 
+                            loading={!isInitialized} 
                             onItemClick={effectiveOnItemClick} 
                             onShowContextMenu={handleShowContextMenu} 
                             onPlayClick={handlePlayClick} 
                             openingDeckId={openingDeckId}
                             highlightedItemId={highlightedItemId}
+                            searchQuery={searchQuery}
                         />
                         )}
                     </div>
                 </main>
-                <FloatingActionButton 
-                onAdd={handleFabClick} 
-                />
+                <div className="absolute bottom-6 right-4 z-20 flex flex-col items-end">
+                  <AnimatePresence>
+                      {isFabMenuOpen && (
+                          <motion.div
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: 20 }}
+                              transition={{ duration: 0.2, ease: 'easeOut' }}
+                              className="flex flex-col items-end space-y-3 mb-3"
+                          >
+                              <div className="flex items-center space-x-2">
+                                  <div className="bg-white dark:bg-[#2B2930] text-gray-700 dark:text-gray-200 text-sm font-semibold px-3 py-1 rounded-lg shadow-md">
+                                      Buat Dek dengan AI
+                                  </div>
+                                  <button onClick={handleOpenAiDeckModal} className="w-14 h-14 flex items-center justify-center bg-blue-400 text-white rounded-2xl shadow-lg hover:bg-blue-500 transition-colors" aria-label="Buat Dek dengan AI">
+                                      <Icon name="sparkle" className="w-6 h-6" />
+                                  </button>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                  <div className="bg-white dark:bg-[#2B2930] text-gray-700 dark:text-gray-200 text-sm font-semibold px-3 py-1 rounded-lg shadow-md">
+                                      Isi Kartu dengan AI
+                                  </div>
+                                  <button onClick={handleOpenAiCardModal} className="w-14 h-14 flex items-center justify-center bg-violet-400 text-white rounded-2xl shadow-lg hover:bg-violet-500 transition-colors" aria-label="Buat dengan AI">
+                                      <Icon name="sparkle" className="w-6 h-6" />
+                                  </button>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                  <div className="bg-white dark:bg-[#2B2930] text-gray-700 dark:text-gray-200 text-sm font-semibold px-3 py-1 rounded-lg shadow-md">
+                                      Buat Folder/Deck
+                                  </div>
+                                  <button onClick={handleOpenAddDeckModal} className="w-14 h-14 flex items-center justify-center bg-gray-500 text-white rounded-2xl shadow-lg hover:bg-gray-600 transition-colors" aria-label="Buat Folder atau Dek Baru">
+                                      <Icon name="edit" className="w-6 h-6" />
+                                  </button>
+                              </div>
+                          </motion.div>
+                      )}
+                  </AnimatePresence>
+                  <button onClick={toggleFabMenu} className="w-16 h-16 flex items-center justify-center bg-[#C8B4F3] text-black rounded-2xl shadow-lg hover:bg-[#D8C4F8] transition-all duration-300 ease-in-out hover:scale-105 active:scale-95" aria-label={isFabMenuOpen ? "Tutup menu aksi" : "Buka menu aksi"} aria-expanded={isFabMenuOpen}>
+                      <motion.div animate={{ rotate: isFabMenuOpen ? 45 : 0 }} transition={{ duration: 0.3 }}>
+                          <Icon name="plus" className="w-8 h-8" />
+                      </motion.div>
+                  </button>
+                </div>
                 <AnimatePresence mode="wait">
-                    {isModalOpen && (
-                        <AddDeckModal
-                        key="add-deck-modal"
-                        onClose={() => setIsModalOpen(false)}
-                        onAdd={handleAddDeck}
-                        />
+                    {isAddDeckModalOpen && (
+                        <AddDeckModal key="add-deck-modal" onClose={() => setIsAddDeckModalOpen(false)} onAdd={handleAddDeck} />
                     )}
                 </AnimatePresence>
             </>
         );
     } else {
-        // Tampilan Daftar Kartu
         return (
             <CardListView 
                 deckId={selectedDeckId} 
                 onBack={handleCardListBack}
-                refreshKey={refreshKey}
                 onEditCard={setCardToEdit}
                 onDeleteCard={handleDeleteCard}
                 cardIdToHighlight={cardIdToHighlight}
                 onHighlightDone={() => setCardIdToHighlight(null)}
+                isSelectionMode={isSelectionMode}
+                selectedCardIds={selectedCardIds}
+                onToggleSelection={handleCardSelection}
+                setSelectedCardIds={setSelectedCardIds}
+                onStartSelectionMode={handleStartSelectionMode}
+                selectAllTrigger={selectAllTrigger}
             />
         );
     }
@@ -710,23 +774,10 @@ function App() {
         .transform-style-3d { transform-style: preserve-3d; }
         .rotate-y-180 { transform: rotateY(180deg); }
         .backface-hidden { backface-visibility: hidden; }
-
-        /* Animasi */
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .animate-spin {
-          animation: spin 1s linear infinite;
-        }
-        
-        @keyframes fade-in-slow {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        .animate-fade-in-slow {
-          animation: fade-in-slow 0.5s ease-out forwards;
-        }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+        @keyframes fade-in-slow { from { opacity: 0; } to { opacity: 1; } }
+        .animate-fade-in-slow { animation: fade-in-slow 0.5s ease-out forwards; }
       `}</style>
       
       <div className={`flex-1 flex flex-col min-h-0 transition-all duration-300 ease-in-out ${isMainMenuOpen ? 'blur-sm pointer-events-none' : ''}`}>
@@ -734,10 +785,17 @@ function App() {
           <Header 
               onToggleSearch={handleToggleSearch}
               onOpenSortFilter={handleOpenSortFilter}
+              onOpenCardSortFilter={handleOpenCardSortModal}
               onMenuClick={handleMenuClick}
               deckId={selectedDeckId}
               deckTitle={currentDeckForHeader?.title}
               onBack={handleCardListBack}
+              isSelectionMode={isSelectionMode && selectedDeckId !== null}
+              onToggleSelectionMode={handleToggleSelectionMode}
+              selectedCardCount={selectedCardIds.size}
+              onBulkMove={handleOpenBulkMove}
+              onBulkDelete={handleOpenBulkDelete}
+              onSelectAll={handleTriggerSelectAll}
           />
         )}
         
@@ -806,6 +864,32 @@ function App() {
         )}
       </AnimatePresence>
       
+      <AnimatePresence>
+        {isMoveCardsModalOpen && selectedDeckId && (
+          <TargetDeckSelectorModal
+            key="move-cards-modal"
+            isOpen={isMoveCardsModalOpen}
+            onClose={() => setIsMoveCardsModalOpen(false)}
+            onMoveConfirm={handleMoveCardsConfirm}
+            currentDeckId={selectedDeckId}
+            selectedCardCount={selectedCardIds.size}
+            mode="bulk"
+          />
+        )}
+      </AnimatePresence>
+      
+      <AnimatePresence>
+        {isBulkDeleteModalOpen && (
+          <ConfirmBulkDeleteCardModal 
+            key="bulk-delete-modal"
+            isOpen={isBulkDeleteModalOpen}
+            onClose={() => setIsBulkDeleteModalOpen(false)}
+            onConfirm={handleBulkDeleteConfirm}
+            cardCount={selectedCardIds.size}
+          />
+        )}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait">
         {isQuizModeSelectorOpen && deckIdToQuiz && (
           <QuizModeSelector
@@ -829,12 +913,64 @@ function App() {
           />
         )}
       </AnimatePresence>
+      
+      <AnimatePresence mode="wait">
+        {isCardSortModalOpen && (
+          <CardSortModal
+            key="card-sort-modal"
+            isOpen={isCardSortModalOpen}
+            onClose={() => setIsCardSortModalOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+      
+      <AnimatePresence mode="wait">
+        {isAiCardModalOpen && deckIdForAiModal !== null && (
+          <AICardInputModal
+            key="ai-card-modal-home"
+            isOpen={isAiCardModalOpen}
+            onClose={() => {
+                setIsAiCardModalOpen(false);
+                setDeckIdForAiModal(null);
+            }}
+            deckId={deckIdForAiModal}
+          />
+        )}
+      </AnimatePresence>
+      
+      <AnimatePresence mode="wait">
+        {isAiDeckModalOpen && (
+            <AIGenerateDeckModal
+                key="ai-deck-modal"
+                isOpen={isAiDeckModalOpen}
+                onClose={(newDeckId?: number) => {
+                    setIsAiDeckModalOpen(false);
+                    if (newDeckId) {
+                        // Jeda singkat untuk memungkinkan animasi modal selesai sebelum navigasi
+                        setTimeout(() => {
+                            setSelectedDeckId(newDeckId);
+                        }, 250);
+                    }
+                }}
+                parentId={currentParentId}
+            />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence mode="wait">
+        {isDeckSelectorOpen && (
+            <TargetDeckSelectorModal
+                key="deck-selector-modal-ai"
+                isOpen={isDeckSelectorOpen}
+                onClose={() => setIsDeckSelectorOpen(false)}
+                onDeckSelected={handleDeckSelectedForAI}
+                mode="single"
+            />
+        )}
+      </AnimatePresence>
 
       <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileSelect}
-        className="hidden"
+        type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden"
         accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
       />
       
@@ -845,26 +981,15 @@ function App() {
               key="sidebar-backdrop"
               className="fixed inset-0 bg-black/60 z-40"
               onClick={handleCloseSidebar}
-              variants={backdropVariants}
-              initial="hidden"
-              animate="visible"
-              exit="hidden"
+              variants={backdropVariants} initial="hidden" animate="visible" exit="hidden"
             />
             <motion.aside
               key="app-sidebar"
               className="fixed top-0 left-0 h-screen w-3/4 md:w-80 bg-white dark:bg-[#2B2930] shadow-2xl z-50 flex flex-col"
-              variants={sidebarVariants}
-              initial="hidden"
-              animate="visible"
-              exit="hidden"
-              aria-modal="true"
-              role="dialog"
+              variants={sidebarVariants} initial="hidden" animate="visible" exit="hidden"
+              aria-modal="true" role="dialog"
             >
-              <Sidebar
-                onClose={handleCloseSidebar}
-                onImport={handleImportClick}
-                onExport={handleSidebarExportClick}
-              />
+              <Sidebar onClose={handleCloseSidebar} onImport={handleImportClick} onExport={handleSidebarExportClick} />
             </motion.aside>
           </>
         )}
@@ -903,7 +1028,7 @@ function App() {
           searchQuery={searchQuery}
           onSearchChange={handleSearchChange}
           searchScope={searchScope}
-          onSearchScopeChange={setSearchScope}
+          onSearchScopeChange={handleSearchScopeChange}
       />
 
       <SuccessNotification />

@@ -42,6 +42,19 @@ const ImportMappingModal: React.FC<ImportMappingModalProps> = ({ isOpen, onClose
   const [mapping, setMapping] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            onClose();
+        }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
     setDeckTitle(fileName);
     
     // Coba petakan kolom secara otomatis berdasarkan nama header umum
@@ -126,9 +139,12 @@ const ImportMappingModal: React.FC<ImportMappingModalProps> = ({ isOpen, onClose
             onClick={e => e.stopPropagation()}
             className="bg-white dark:bg-[#2B2930] rounded-2xl w-full max-w-2xl shadow-xl flex flex-col h-full max-h-[90vh]"
             variants={modalVariants}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="import-modal-title"
           >
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Impor Dek dari File</h2>
+                <h2 id="import-modal-title" className="text-xl font-bold text-gray-900 dark:text-white">Impor Dek dari File</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Petakan kolom dari file Anda ke bidang-bidang kartu.</p>
             </div>
             

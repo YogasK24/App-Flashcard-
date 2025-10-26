@@ -16,12 +16,21 @@ const CardSearchResultItem: React.FC<CardSearchResultItemProps> = ({ result, onI
         visible: { opacity: 1, y: 0 },
     };
 
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          onItemClick(result);
+        }
+    };
+
     return (
         <motion.div
             variants={itemVariants}
             onClick={() => onItemClick(result)}
             className="bg-white dark:bg-[#2B2930] p-4 rounded-lg flex flex-col space-y-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-[#3A3841] transition-colors duration-200 shadow-sm"
             role="button"
+            tabIndex={0}
+            onKeyPress={handleKeyPress}
+            aria-label={`Buka kartu: ${card.front}, dari dek: ${deck.title}`}
         >
             <div className="flex items-start justify-between">
                 <p className="font-semibold text-lg text-gray-900 dark:text-[#E6E1E5]">{card.front}</p>

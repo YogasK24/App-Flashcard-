@@ -47,6 +47,19 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, initialItemI
     const isContextExport = initialItemId !== null;
 
     useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isOpen, onClose]);
+
+    useEffect(() => {
         const fetchItemInfo = async () => {
             const itemIdToFetch = isContextExport ? initialItemId : (selectedDeckId ?? currentParentId);
             
@@ -176,8 +189,11 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, initialItemI
                         onClick={e => e.stopPropagation()}
                         className="bg-white dark:bg-[#2B2930] rounded-2xl p-6 w-full max-w-md shadow-xl"
                         variants={modalVariants}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="export-modal-title"
                     >
-                        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Ekspor Data</h2>
+                        <h2 id="export-modal-title" className="text-xl font-bold text-gray-900 dark:text-white mb-6">Ekspor Data</h2>
                         
                         <div className="space-y-6">
                             <div>

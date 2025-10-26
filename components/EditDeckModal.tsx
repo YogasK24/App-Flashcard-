@@ -5,7 +5,7 @@ import { Deck } from '../types';
 interface EditDeckModalProps {
   deckToEdit: Deck;
   onClose: () => void;
-  onSave: (deckId: number, newTitle: string) => void;
+  onSave: (deckId: number, newTitle: string) => Promise<{ success: boolean; message?: string; }>;
 }
 
 const backdropVariants: Variants = {
@@ -22,17 +22,43 @@ const modalVariants: Variants = {
 
 const EditDeckModal: React.FC<EditDeckModalProps> = ({ deckToEdit, onClose, onSave }) => {
   const [title, setTitle] = useState(deckToEdit.title);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            onClose();
+        }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
 
   useEffect(() => {
     setTitle(deckToEdit.title);
+    setError(null);
   }, [deckToEdit.title]);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (title.trim() && title.trim() !== deckToEdit.title) {
-      onSave(deckToEdit.id, title.trim());
-    } else {
-      onClose(); // Tutup jika tidak ada perubahan
+    if (title.trim() && !isSubmitting) {
+      if (title.trim() === deckToEdit.title) {
+        onClose(); // Tidak ada perubahan, tutup saja
+        return;
+      }
+      
+      setIsSubmitting(true);
+      setError(null);
+      const result = await onSave(deckToEdit.id, title.trim());
+      setIsSubmitting(false);
+
+      if (!result.success) {
+        setError(result.message || "Gagal menyimpan perubahan.");
+      }
+      // Jika berhasil, komponen induk (App.tsx) akan menutup modal
     }
   };
   
@@ -55,10 +81,13 @@ const EditDeckModal: React.FC<EditDeckModalProps> = ({ deckToEdit, onClose, onSa
         onClick={e => e.stopPropagation()}
         className="bg-white dark:bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl"
         variants={modalVariants}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-deck-modal-title"
       >
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Ubah Nama</h2>
+        <h2 id="edit-deck-modal-title" className="text-xl font-bold text-gray-900 dark:text-white mb-6">Ubah Nama</h2>
         <form onSubmit={handleSubmit}>
-          <div className="mb-6">
+          <div className="mb-4">
             <label htmlFor="deck-title-edit" className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-2">
               Judul
             </label>
@@ -73,8 +102,18 @@ const EditDeckModal: React.FC<EditDeckModalProps> = ({ deckToEdit, onClose, onSa
               onFocus={(e) => e.target.select()}
             />
           </div>
+          
+          {error && (
+            <motion.p
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-red-500 text-sm mb-4 text-center"
+            >
+              {error}
+            </motion.p>
+          )}
 
-          <div className="flex justify-end space-x-3">
+          <div className="flex justify-end space-x-3 mt-6">
             <button
               type="button"
               onClick={onClose}
@@ -85,7 +124,7 @@ const EditDeckModal: React.FC<EditDeckModalProps> = ({ deckToEdit, onClose, onSa
             <button
               type="submit"
               className="px-6 py-2 bg-[#C8B4F3] text-black font-semibold rounded-full disabled:opacity-50"
-              disabled={!title.trim()}
+              disabled={!title.trim() || isSubmitting}
             >
               Simpan
             </button>

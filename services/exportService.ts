@@ -10,7 +10,8 @@ const getCardsForExport = async (scope: 'all' | 'folder' | 'deck', itemId: numbe
         return await db.cards.orderBy('deckId').toArray();
     }
     if (scope === 'deck' && itemId) {
-        return await db.cards.where({ deckId: itemId }).toArray();
+        // PERBAIKAN: Menggunakan sintaks Dexie yang benar untuk kueri indeks tunggal.
+        return await db.cards.where('deckId').equals(itemId).toArray();
     }
     if (scope === 'folder' && itemId) {
         return await getCardsInHierarchy(itemId);
@@ -34,8 +35,6 @@ export const exportData = async (
             return;
         }
 
-        // Definisi master field dan cara mendapatkan nilainya dari objek Card.
-        // Ini adalah header yang berpotensi untuk diekspor.
         const masterFields: Record<string, (card: Card) => string | undefined> = {
             '日本語(漢字)': (card) => card.front,
             '日本語(片仮名)': (card) => card.back,
@@ -43,21 +42,28 @@ export const exportData = async (
             'Contoh Kalimat': (card) => card.example,
         };
         
-        // Tentukan header mana yang memiliki data aktual dan harus disertakan dalam ekspor.
-        const activeHeaders = Object.keys(masterFields).filter(header =>
-            cardsToExport.some(card => {
-                const value = masterFields[header as keyof typeof masterFields](card);
-                return value != null && String(value).trim() !== '';
-            })
-        );
-        
-        // Jika tidak ada header yang memiliki data (misalnya, semua kartu kosong),
-        // ekspor setidaknya header yang wajib ada.
-        if (activeHeaders.length === 0) {
-            activeHeaders.push('日本語(漢字)', '日本語(片仮名)');
-        }
+        // Optimasi: Tentukan header aktif dalam satu kali iterasi.
+        const activeHeadersSet = new Set<string>();
+        cardsToExport.forEach(card => {
+            for (const header in masterFields) {
+                if (Object.prototype.hasOwnProperty.call(masterFields, header)) {
+                    const value = masterFields[header as keyof typeof masterFields](card);
+                    if (value != null && String(value).trim() !== '') {
+                        activeHeadersSet.add(header);
+                    }
+                }
+            }
+        });
 
-        // Transformasi data untuk ekspor, hanya menyertakan kolom-kolom yang aktif.
+        // Pertahankan urutan header asli dari masterFields.
+        let activeHeaders = Object.keys(masterFields).filter(header => activeHeadersSet.has(header));
+
+        // Jika tidak ada header yang aktif (mis., semua data opsional kosong),
+        // pastikan setidaknya header utama disertakan.
+        if (activeHeaders.length === 0) {
+            activeHeaders = ['日本語(漢字)', '日本語(片仮名)'];
+        }
+        
         const dataForSheet = cardsToExport.map(card => {
             const row: Record<string, string> = {};
             activeHeaders.forEach(header => {
@@ -71,12 +77,12 @@ export const exportData = async (
         const fileName = `${safeItemName}_${new Date().toISOString().split('T')[0]}.${format}`;
 
         if (format === 'xlsx') {
-            const worksheet = utils.json_to_sheet(dataForSheet);
+            const worksheet = utils.json_to_sheet(dataForSheet, { header: activeHeaders });
             const workbook = utils.book_new();
             utils.book_append_sheet(workbook, worksheet, 'Flashcards');
             writeFile(workbook, fileName);
         } else { // csv
-            const csv = Papa.unparse(dataForSheet);
+            const csv = Papa.unparse(dataForSheet, { columns: activeHeaders });
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);

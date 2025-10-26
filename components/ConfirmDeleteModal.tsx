@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, Variants } from 'framer-motion';
 
 interface ConfirmDeleteModalProps {
@@ -20,6 +20,18 @@ const modalVariants: Variants = {
 };
 
 const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({ deckTitle, onClose, onConfirm }) => {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            onClose();
+        }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+  
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -39,9 +51,13 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({ deckTitle, onCl
         onClick={e => e.stopPropagation()}
         className="bg-white dark:bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl"
         variants={modalVariants}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-modal-title"
+        aria-describedby="delete-modal-description"
       >
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Konfirmasi Penghapusan</h2>
-        <p className="text-gray-600 dark:text-[#C8C5CA] mb-6">
+        <h2 id="delete-modal-title" className="text-xl font-bold text-gray-900 dark:text-white mb-4">Konfirmasi Penghapusan</h2>
+        <p id="delete-modal-description" className="text-gray-600 dark:text-[#C8C5CA] mb-6">
           Apakah Anda yakin ingin menghapus "<strong>{deckTitle}</strong>"? Semua dek dan kartu di dalamnya juga akan dihapus secara permanen. Tindakan ini tidak dapat diurungkan.
         </p>
         <div className="flex justify-end space-x-3">

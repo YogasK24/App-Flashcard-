@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
 import { useThemeStore } from '../store/themeStore';
@@ -50,6 +50,14 @@ const TypeItPage: React.FC = () => {
   const [isAnswered, setIsAnswered] = useState(false);
   const [isSessionComplete, setIsSessionComplete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+        mountedRef.current = false;
+    };
+  }, []);
 
   const currentCard = useMemo(() => quizCards[currentCardIndex], [quizCards, currentCardIndex]);
   const questionField = studyDirection === 'kanji' ? 'front' : 'back';
@@ -61,32 +69,47 @@ const TypeItPage: React.FC = () => {
     }
   }, [currentCardIndex, quizCards.length]);
 
-  const advanceToNext = (isCorrect: boolean) => {
+  const advanceToNext = useCallback((isCorrect: boolean) => {
+    const cardToUpdate = quizCards[currentCardIndex];
+    if (!cardToUpdate) return;
+
     if (isCorrect) {
-      setCorrectAnswerCount(prev => prev + 1); // Tambahkan hitungan jika benar
+      setCorrectAnswerCount(prev => prev + 1);
     }
     setFeedback(isCorrect ? 'correct' : 'incorrect');
-    updateCardProgress(currentCard, isCorrect ? 'ingat' : 'lupa').then(() => {
+    updateCardProgress(cardToUpdate, isCorrect ? 'ingat' : 'lupa').then(() => {
       setTimeout(() => {
-        setCurrentCardIndex(prev => prev + 1);
-        setInputValue('');
-        setFeedback('idle');
-        setIsAnswered(false);
+        if (mountedRef.current) {
+            setCurrentCardIndex(prev => prev + 1);
+            setInputValue('');
+            setFeedback('idle');
+            setIsAnswered(false);
+        }
       }, isCorrect ? 1000 : 2500);
     });
-  };
+  }, [quizCards, currentCardIndex, updateCardProgress]);
 
-  const handleTimeUp = () => {
+  const handleTimeUp = useCallback(() => {
     if (isAnswered) return;
     setIsAnswered(true);
     advanceToNext(false); // Waktu habis selalu salah
-  };
+  }, [isAnswered, advanceToNext]);
   
-  const { timerProgress, stopTimer } = useQuizTimer({
-    key: currentCard?.id,
-    initialTime: quizMode === 'blitz' ? timerDuration : 0,
-    onTimeUp: handleTimeUp,
-  });
+  const { timerProgress, start, stop, reset } = useQuizTimer(
+    quizMode === 'blitz' ? timerDuration : 0,
+    handleTimeUp,
+  );
+
+  useEffect(() => {
+    reset();
+    if (quizMode === 'blitz') {
+      start();
+    }
+    // Hentikan timer kartu sebelumnya saat beralih atau unmount
+    return () => {
+        stop();
+    };
+  }, [currentCardIndex, quizMode, reset, start, stop]);
   
   useEffect(() => {
     if (!isAnswered) {
@@ -99,7 +122,7 @@ const TypeItPage: React.FC = () => {
     if (isAnswered || !inputValue.trim()) return;
 
     if (quizMode === 'blitz') {
-      stopTimer();
+      stop();
     }
 
     setIsAnswered(true);
@@ -164,6 +187,8 @@ const TypeItPage: React.FC = () => {
         totalCards={quizCards.length}
         progress={progressPercentage}
         boxInfo={quizMode === 'sr' && currentCard ? `Box ${currentCard.repetitions + 1}` : undefined}
+        timerProgress={timerProgress}
+        showTimerBar={quizMode === 'blitz'}
       />
       
       <main className="flex-grow flex flex-col justify-start items-center w-full pt-8">

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Import Variants type from framer-motion to resolve type incompatibility with transition property.
 import { motion, Variants } from 'framer-motion';
 import { useCardStore } from '../store/cardStore';
 import { useThemeStore } from '../store/themeStore';
@@ -48,6 +47,18 @@ const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ deckId, onClose }) 
     startQuiz: state.startQuiz,
     startGame: state.startGame,
   }));
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            onClose();
+        }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -119,7 +130,7 @@ const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ deckId, onClose }) 
                 iconColor="text-blue-500"
                 title="Repeat"
                 subtitle={`Ulangi ${stats.repeatCount} kata`}
-                onClick={() => handleNavigateToSubMenu('modes')}
+                onClick={() => handleStartQuiz('due')}
                 disabled={stats.repeatCount === 0}
             />
             <ModeItem 
@@ -242,9 +253,6 @@ const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ deckId, onClose }) 
     <motion.div
       onClick={handleBackdropClick}
       className="fixed inset-0 bg-black/60 flex items-end justify-center z-50"
-      aria-modal="true"
-      role="dialog"
-      aria-labelledby="quiz-mode-title"
       variants={backdropVariants}
       initial="hidden"
       animate="visible"
@@ -254,6 +262,9 @@ const QuizModeSelector: React.FC<QuizModeSelectorProps> = ({ deckId, onClose }) 
         onClick={(e) => e.stopPropagation()}
         variants={modalVariants}
         className="bg-white dark:bg-[#2B2930] pt-3 pb-4 rounded-t-2xl shadow-2xl w-full max-w-md"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="quiz-mode-title"
       >
         <div className="w-10 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-3" />
         {renderContent()}

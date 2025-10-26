@@ -1,5 +1,5 @@
 
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect } from 'react';
 import { motion, Variants } from 'framer-motion';
 import Icon from './Icon';
 
@@ -25,6 +25,18 @@ const AddDeckModal: React.FC<AddDeckModalProps> = ({ onClose, onAdd }) => {
   const [type, setType] = useState<'deck' | 'folder'>('deck');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            onClose();
+        }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -59,8 +71,11 @@ const AddDeckModal: React.FC<AddDeckModalProps> = ({ onClose, onAdd }) => {
         onClick={e => e.stopPropagation()}
         className="bg-white dark:bg-[#2B2930] rounded-2xl p-6 w-full max-w-sm shadow-xl"
         variants={modalVariants}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-deck-modal-title"
       >
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Buat Item Baru</h2>
+        <h2 id="add-deck-modal-title" className="text-xl font-bold text-gray-900 dark:text-white mb-6">Buat Item Baru</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label htmlFor="deck-title" className="block text-sm font-medium text-gray-600 dark:text-[#C8C5CA] mb-2">

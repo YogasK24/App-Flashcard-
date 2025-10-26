@@ -34,11 +34,12 @@ const RecallItPage: React.FC = () => {
     }
   }, [currentCardIndex, totalCards]);
 
-  const { timeLeft, stopTimer } = useQuizTimer({
-    key: currentCard?.id,
-    initialTime: RECALL_TIMER_DURATION,
-    onTimeUp: () => {}, // Tidak digunakan, timer dihentikan secara manual
-  });
+  const { timeLeft, start, stop, reset } = useQuizTimer(RECALL_TIMER_DURATION, () => {});
+
+  useEffect(() => {
+    reset();
+    start();
+  }, [currentCard?.id, reset, start]);
 
   // Reset timeSpent saat kartu berubah
   useEffect(() => {
@@ -66,7 +67,7 @@ const RecallItPage: React.FC = () => {
   };
 
   const handleShowAnswer = () => {
-    stopTimer();
+    stop();
     const elapsedTime = RECALL_TIMER_DURATION - timeLeft;
     setTimeSpent(elapsedTime);
     setIsFlipped(true);
