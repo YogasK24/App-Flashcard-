@@ -189,7 +189,12 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
         const allCardsFromDB = await db.cards.toArray();
         const updatedDecks = recalculateStatsOnState(allCardsFromDB, allDecksFromDB);
 
-        await db.decks.bulkPut(updatedDecks);
+        // PERBAIKAN KRITIS: Filter array sebelum bulkPut untuk mencegah Invalid Key Error
+        const validUpdatedDecks = updatedDecks.filter(deck => typeof deck.id === 'number' && deck.id > 0);
+
+        await db.decks.bulkPut(validUpdatedDecks);
+        
+        // Memperbarui state dengan array penuh (walaupun validUpdatedDecks yang disimpan)
         set({ decks: updatedDecks, cards: allCardsFromDB });
         console.log(`Statistik diperbarui untuk ${updatedDecks.length} item.`);
     } catch (error) {
@@ -220,15 +225,15 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
 
     try {
       await db.transaction('rw', db.decks, async () => {
-        // PERBAIKAN: Menggunakan sintaks Dexie yang benar untuk kueri indeks tunggal
-        // untuk menghindari error "Invalid key provided".
+        // PERBAIKAN: Menggunakan kueri yang lebih andal untuk memeriksa keberadaan item.
+        // Kueri ini mencari berdasarkan judul (tanpa membedakan huruf besar/kecil) terlebih dahulu,
+        // lalu memfilter berdasarkan parentId. Ini menghindari masalah dengan 'equals(null)'.
         const existing = await db.decks
-          .where('parentId').equals(safeParentId)
-          .filter(deck => deck.title.toLowerCase() === trimmedTitle.toLowerCase())
+          .where('title').equalsIgnoreCase(trimmedTitle)
+          .filter(deck => deck.parentId === safeParentId)
           .first();
 
         if (existing) {
-          // Melempar error akan secara otomatis membatalkan transaksi
           throw new Error(`Item dengan nama "${trimmedTitle}" sudah ada di folder ini.`);
         }
 
@@ -246,11 +251,21 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
 
       // Jika transaksi berhasil, perbarui state
       if (newDeckId !== undefined) {
-        await get().recalculateAllDeckStats();
+        // Ambil objek Deck lengkap untuk pembaruan state optimistik
+        const newDeck = await db.decks.get(newDeckId);
+        
+        if (newDeck) {
+            // LANGKAH KRITIS: Set state dengan Deck baru SEGERA (optimistik)
+            set((state) => ({
+                decks: [...state.decks, newDeck],
+            }));
+        }
+
+        // Panggil rekalkulasi penuh di latar belakang (tanpa await)
+        get().recalculateAllDeckStats(); 
         return { success: true, deckId: newDeckId };
       }
       
-      // Fallback jika newDeckId tidak terdefinisi (seharusnya tidak terjadi)
       return { success: false, message: "Gagal membuat dek karena alasan yang tidak diketahui." };
 
     } catch (error) {
@@ -267,11 +282,10 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
 
     try {
         await db.transaction('rw', db.decks, db.cards, async () => {
-            // PERBAIKAN: Pindahkan validasi duplikat ke dalam transaksi database
-            // untuk konsistensi dan gunakan sintaks kueri yang benar.
+            // PERBAIKAN: Menggunakan kueri yang sama andalnya seperti di addDeck.
             const existing = await db.decks
-                .where('parentId').equals(safeParentId)
-                .filter(deck => deck.title.toLowerCase() === trimmedTitle.toLowerCase())
+                .where('title').equalsIgnoreCase(trimmedTitle)
+                .filter(deck => deck.parentId === safeParentId)
                 .first();
 
             if (existing) {
@@ -307,7 +321,6 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
             await get().recalculateAllDeckStats();
             return { success: true, deckId: newDeckId };
         } else {
-            // Kasus ini tidak akan tercapai jika transaksi gagal karena akan melempar error
             return { success: false, message: "Gagal membuat dek karena alasan yang tidak diketahui." };
         }
     } catch (error) {
@@ -333,7 +346,8 @@ export const useCardStore = create<CardStoreState>((set, get) => ({
             }
         }
         
-        const deckIdsToDeleteArray = Array.from(deckIdsToDelete);
+        const deckIdsToDeleteArray = Array.from(deckIdsToDelete).filter(id => typeof id === 'number' && id > 0); // FILTER KRITIS
+        if (deckIdsToDeleteArray.length === 0) return;
 
         await db.transaction('rw', db.decks, db.cards, async () => {
             await db.cards.where('deckId').anyOf(deckIdsToDeleteArray).delete();

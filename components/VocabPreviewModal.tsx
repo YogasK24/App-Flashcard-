@@ -104,16 +104,15 @@ const VocabPreviewModal: React.FC<VocabPreviewModalProps> = ({
             aria-modal="true"
             aria-labelledby="preview-modal-title"
           >
-            {/* Header */}
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-              <h2 id="preview-modal-title" className="text-xl font-bold text-gray-900 dark:text-white">Pratinjau Kosakata</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Tambahkan ke dek: <span className="font-semibold">{targetDeckTitle}</span>
-              </p>
-            </div>
+            {/* Header telah dihapus */}
 
-            {/* Content List */}
-            <div className="flex-grow p-4 overflow-y-auto">
+            {/* Content List: Padding disesuaikan untuk memulai dari atas */}
+            <div className="flex-grow p-6 pt-4 overflow-y-auto">
+              {/* Menampilkan Nama Deck di sini */}
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                  Target: <span className="font-semibold text-gray-800 dark:text-white">{targetDeckTitle}</span>
+              </p>
+              
               <AnimatePresence mode="wait">
                 {cards.length > 0 ? (
                   <motion.div
